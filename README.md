@@ -34,13 +34,15 @@ Before diving in, here are key terms used throughout this project:
 
 ### Motivation
 
-iPhone 12 and later record 4K video in Dolby Vision Profile 8 at bitrates around 70-80 Mbps. This results in large files: a typical 30-second clip produces 200+ MB. For archival and storage optimization, re-encoding these files with x265 can achieve 80-90% compression with minimal perceptual quality loss.
+iPhone 12 and later record 4K video in [Dolby Vision Profile 8.4](https://professionalsupport.dolby.com/s/article/Using-an-Apple-iPhone-12-captured-Dolby-Vision-content-as-a-source-in-a-Dolby-Vision-production?language=en_US), a dual-layer HDR format using HLG as the base layer with dynamic metadata overlay. At bitrates around 70-80 Mbps, this results in large files: a typical 30-second clip produces 200+ MB. For archival and storage optimization, re-encoding with x265 can achieve 80-90% compression with minimal perceptual quality loss.
 
-However, standard re-encoding pipelines strip the Dolby Vision metadata. The resulting files play back as standard HDR (HLG), losing the dynamic tone mapping capabilities that distinguish Dolby Vision from static HDR formats.
+However, standard re-encoding pipelines strip the Dolby Vision metadata. The resulting files play back as standard HDR (HLG), losing the dynamic tone mapping capabilities that distinguish Dolby Vision from static HDR formats. This is a [known limitation](https://www.phoronix.com/news/FFmpeg-Dolby-Vision-Progress) - while FFmpeg has made progress on DV support, it still cannot generate the required container signaling when re-encoding.
 
-### Technical Investigation
+Major platforms face similar challenges. [Meta's engineering team documented](https://engineering.fb.com/2024/11/17/ios/enhancing-hdr-on-instagram-for-ios-with-dolby-vision/) their work on Instagram's HDR pipeline, noting the complexity of preserving DV metadata through transcoding workflows. Apple's [developer documentation on Dolby Vision](https://developer.apple.com/av-foundation/Incorporating-HDR-video-with-Dolby-Vision-into-your-apps.pdf) describes the format architecture but offers no re-encoding solution.
 
-Initial testing with ffmpeg revealed that re-encoded files displayed "HDR" rather than "Dolby Vision" on iOS devices. Analysis of the container structure showed two distinct metadata components:
+### Understanding the Two-Layer Metadata Problem
+
+Initial testing with ffmpeg revealed that re-encoded files displayed "HDR" rather than "Dolby Vision" on iOS devices. Analysis of the container structure showed two distinct metadata components that must both be preserved - a challenge [discussed extensively](https://github.com/quietvoid/dovi_tool/discussions/78) in the dovi_tool community:
 
 **Stream-level metadata (RPU)**: Dolby Vision embeds Reference Processing Unit data as supplemental enhancement information (SEI) NAL units within the HEVC bitstream. These contain per-frame tone mapping parameters, color volume transforms, and content-adaptive metadata. When the video is re-encoded, these NAL units are discarded since they reference the original frame data.
 
@@ -71,9 +73,9 @@ Testing confirmed 85-91% size reduction while preserving the Dolby Vision signal
 
 ### Notable Findings
 
-**Codec tag compatibility**: HEVC streams can use either `hvc1` or `hev1` codec tags in MP4 containers. iOS requires `hvc1` for playback. The mp4muxer `--hvc1flag 0` parameter and ffmpeg `-tag:v hvc1` flag ensure correct tagging.
+**Codec tag compatibility**: HEVC streams can use either `hvc1` or `hev1` codec tags in MP4 containers. The [difference](https://community.bitmovin.com/t/whats-the-difference-between-hvc1-and-hev1-hevc-codec-tags-for-fmp4/101) lies in parameter set storage: `hvc1` stores them in the sample entry (out-of-band), while `hev1` stores them inline. iOS [requires `hvc1`](https://github.com/HandBrake/HandBrake/issues/1128) for playback - a common pitfall when transcoding. The mp4muxer `--hvc1flag 0` parameter and ffmpeg `-tag:v hvc1` flag ensure correct tagging.
 
-**RPU validity after re-encoding**: The RPU metadata remains functionally valid after re-encoding because it describes relative tone mapping adjustments. The re-encoded stream maintains similar scene brightness and color characteristics, allowing the original dynamic metadata to apply correctly.
+**RPU validity after re-encoding**: The RPU metadata remains functionally valid after re-encoding because it describes relative tone mapping adjustments. The re-encoded stream maintains similar scene brightness and color characteristics, allowing the original dynamic metadata to apply correctly. This is the key insight that makes the preservation workflow possible.
 
 **NVENC compatibility**: The workflow supports both CPU (x265) and GPU (NVENC) encoding. NVENC provides 10-20x faster encoding with acceptable quality for most use cases.
 
@@ -267,9 +269,23 @@ Tested on 12.4 MB iPhone video (4K, DV Profile 8, ~4 seconds):
 
 ## References
 
-- [dovi_tool](https://github.com/quietvoid/dovi_tool) - Dolby Vision RPU manipulation
-- [dlb_mp4base](https://github.com/DolbyLaboratories/dlb_mp4base) - Dolby's official MP4 muxer
+### Tools
+- [dovi_tool](https://github.com/quietvoid/dovi_tool) - Dolby Vision RPU extraction and injection
+- [dlb_mp4base](https://github.com/DolbyLaboratories/dlb_mp4base) - Dolby's official MP4 muxer for DV container boxes
 - [DoViMuxer](https://github.com/nilaoda/DoViMuxer) - Automated DV muxing wrapper
+
+### Documentation
+- [Apple: Incorporating HDR video with Dolby Vision](https://developer.apple.com/av-foundation/Incorporating-HDR-video-with-Dolby-Vision-into-your-apps.pdf) - Official Apple developer guide
+- [Dolby: iPhone 12 as DV source](https://professionalsupport.dolby.com/s/article/Using-an-Apple-iPhone-12-captured-Dolby-Vision-content-as-a-source-in-a-Dolby-Vision-production?language=en_US) - Profile 8.4 specifications
+- [Bitmovin: hvc1 vs hev1](https://community.bitmovin.com/t/whats-the-difference-between-hvc1-and-hev1-hevc-codec-tags-for-fmp4/101) - Codec tag differences explained
+
+### Community Discussions
+- [dovi_tool: Re-encoding with RPU preservation](https://github.com/quietvoid/dovi_tool/discussions/78) - Workflow discussion
+- [HandBrake: Apple HEVC compatibility](https://github.com/HandBrake/HandBrake/issues/1128) - hvc1 requirement for iOS
+- [FFmpeg Dolby Vision progress](https://www.phoronix.com/news/FFmpeg-Dolby-Vision-Progress) - Current FFmpeg DV support status
+
+### Related Articles
+- [Meta Engineering: HDR on Instagram for iOS](https://engineering.fb.com/2024/11/17/ios/enhancing-hdr-on-instagram-for-ios-with-dolby-vision/) - Industry perspective on DV workflows
 
 ## License
 
