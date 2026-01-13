@@ -9,7 +9,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import SpinnerColumn, TextColumn  # noqa: F401 - may be used later
 from rich.table import Table
 
 from . import __version__
@@ -162,7 +162,8 @@ def process(
         console.print()
 
     def on_transcode_start(path: Path, idx: int, total: int):
-        pass  # Progress handled by Rich progress bar
+        fav = " ★" if path.stem in favorites else ""
+        console.print(f"  [{idx}/{total}] Transcoding: {path.name}{fav}...")
 
     def on_transcode_complete(path: Path, in_size: int, out_size: int, success: bool):
         nonlocal favorites
@@ -176,14 +177,24 @@ def process(
         else:
             console.print(f"  [red]✗[/red] {path.name}")
 
+    def on_copy_start(file_type: str, count: int):
+        if count > 0:
+            console.print(f"  Copying {count} {file_type}...")
+
+    def on_copy_progress(file_type: str, current: int, total: int):
+        pct = (current / total * 100) if total > 0 else 0
+        console.print(f"    [{current}/{total}] {pct:.0f}% {file_type} copied...")
+
     def on_copy_complete(file_type: str, count: int):
         if count > 0:
-            console.print(f"  [blue]⤵[/blue] {count} {file_type} copied")
+            console.print(f"  [green]✓[/green] {count} {file_type} copied")
 
     callbacks = RunnerCallbacks(
         on_scan_complete=on_scan_complete,
         on_transcode_start=on_transcode_start,
         on_transcode_complete=on_transcode_complete,
+        on_copy_start=on_copy_start,
+        on_copy_progress=on_copy_progress,
         on_copy_complete=on_copy_complete,
     )
 
@@ -230,7 +241,19 @@ def process(
         if limit > 0 and to_transcode > limit:
             console.print(f"  [dim]Would limit to {limit} of {to_transcode} videos[/dim]")
 
-        console.print(f"\n  Photos: {len(scan_result.photos)}")
+        # Photos summary
+        photos_to_copy = len(scan_result.photos)
+        photos_favorites = sum(1 for p in scan_result.photos if p.stem in favorites)
+        console.print(f"\n  [blue]COPY:[/blue] {photos_to_copy} photos ({photos_favorites} favorites)")
+
+        # Summary
+        console.print("\n[bold]Summary:[/bold]")
+        console.print(f"  Videos to transcode: {to_transcode}")
+        console.print(f"  Videos to copy:      {to_copy}")
+        console.print(f"  Photos to copy:      {photos_to_copy}")
+        if photos_favorites > 0:
+            console.print(f"  Favorites detected:  {photos_favorites + sum(1 for v in scan_result.videos if v.stem in favorites)}")
+
         if skipped > 0:
             console.print(f"\n[yellow]Would skip {skipped} files (already exist). Use --force to redo.[/yellow]")
         console.print("\n[dim]Dry run - no files processed. Remove --dry-run to execute.[/dim]")
@@ -246,14 +269,8 @@ def process(
         classify_result = classify_action(source)
         favorites = classify_result.favorites
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Processing...", total=None)
-        result = runner.run(workflow, callbacks)
-        progress.update(task, completed=True)
+    # Run the workflow (callbacks will print progress)
+    result = runner.run(workflow, callbacks)
 
     # Summary
     console.print()

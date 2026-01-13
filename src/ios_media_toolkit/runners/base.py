@@ -60,6 +60,7 @@ class RunnerCallbacks:
 
     # Copy progress
     on_copy_start: Callable[[str, int], None] | None = None  # file_type, count
+    on_copy_progress: Callable[[str, int, int], None] | None = None  # file_type, current, total
     on_copy_complete: Callable[[str, int], None] | None = None  # file_type, copied_count
 
 

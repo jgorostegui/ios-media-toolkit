@@ -522,6 +522,9 @@ def run_pipeline(input_path: Path, output_dir: Path, config: PipelineConfig) -> 
                     error_message=result.stderr.decode()[-500:] if result.stderr else "Unknown error",
                 )
 
+        # Copy metadata (GPS, dates, device info) from source to output
+        copy_metadata(input_path, output_path)
+
         encode_time = time.time() - start_time
         output_size = output_path.stat().st_size if output_path.exists() else 0
 

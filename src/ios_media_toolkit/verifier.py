@@ -84,7 +84,7 @@ def get_stream_info(file_path: Path, stream_selector: str, entry: str) -> str:
 
 def get_format_info(file_path: Path, entry: str) -> str:
     """Get format-level metadata."""
-    return run_ffprobe(file_path, "-show_entries", f"format=tag:{entry}", "-of", "default=noprint_wrappers=1:nokey=1")
+    return run_ffprobe(file_path, "-show_entries", f"format_tags={entry}", "-of", "default=noprint_wrappers=1:nokey=1")
 
 
 def get_side_data(file_path: Path) -> str:
@@ -265,7 +265,7 @@ def check_metadata(file_path: Path, reference: Path | None = None) -> list[Check
 
     # Creation date
     creation_time = run_ffprobe(
-        file_path, "-show_entries", "format=tag:creation_time", "-of", "default=noprint_wrappers=1:nokey=1"
+        file_path, "-show_entries", "format_tags=creation_time", "-of", "default=noprint_wrappers=1:nokey=1"
     )
     if creation_time:
         checks.append(CheckResult(name="Creation date", status=CheckStatus.PASS, details=creation_time))

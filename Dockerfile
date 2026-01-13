@@ -18,6 +18,10 @@ LABEL description="iPhone media processing with Dolby Vision preservation"
 # Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Enable NVIDIA video encoding capabilities (required for NVENC)
+# See: https://forums.developer.nvidia.com/t/cannot-load-libnvidia-encode-so-1/117652
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+
 # Versions - update these as needed
 ENV DOVI_TOOL_VERSION=2.3.1
 

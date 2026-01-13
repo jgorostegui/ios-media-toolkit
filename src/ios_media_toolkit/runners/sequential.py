@@ -1,6 +1,7 @@
 """Sequential runner - Executes workflows tasks one at a time."""
 
 import shutil
+from pathlib import Path
 
 from ..actions import classify_favorites, scan_folder
 from ..actions.scan import is_mov_file
@@ -8,6 +9,33 @@ from ..encoder import run_pipeline
 from ..manifest import Manifest
 from ..workflow import ArchiveWorkflow, TaskStatus, TaskType
 from .base import RunnerCallbacks, RunnerResult
+
+FAV_SUFFIX = "__FAV"
+
+
+def get_output_filename(source_path: Path, is_favorite: bool, extension: str | None = None) -> str:
+    """
+    Generate output filename, adding __FAV suffix for favorites.
+
+    Args:
+        source_path: Source file path
+        is_favorite: Whether the file is a favorite
+        extension: Optional extension override (e.g., ".mp4" for transcoded videos)
+
+    Returns:
+        Output filename with __FAV suffix if favorite
+
+    Examples:
+        photo.HEIC + favorite=True  -> photo__FAV.HEIC
+        video.MOV  + favorite=True  -> video__FAV.mp4 (with extension=".mp4")
+        photo.JPG  + favorite=False -> photo.JPG
+    """
+    stem = source_path.stem
+    ext = extension if extension else source_path.suffix
+
+    if is_favorite:
+        return f"{stem}{FAV_SUFFIX}{ext}"
+    return f"{stem}{ext}"
 
 
 class SequentialRunner:
@@ -163,15 +191,12 @@ class SequentialRunner:
         min_size_bytes = config.min_size_mb * 1024 * 1024
 
         for video in scan_result.videos:
-            # Skip if already processed (unless force)
-            if video.stem in processed_stems and not config.force:
-                continue
-
             is_mov = is_mov_file(video)
             output_file = config.output / f"{video.stem}.mp4"
+            output_file_fav = config.output / f"{video.stem}{FAV_SUFFIX}.mp4"
 
-            # Skip if output exists and not force (redundant check but explicit)
-            if output_file.exists() and not config.force:
+            # Skip if output exists and not force
+            if not config.force and (output_file.exists() or output_file_fav.exists()):
                 continue
 
             # Non-MOV files: copy (already compressed)
@@ -185,10 +210,15 @@ class SequentialRunner:
         if config.limit > 0 and len(workflow.videos_to_transcode) > config.limit:
             workflow.videos_to_transcode = workflow.videos_to_transcode[: config.limit]
 
-        # Filter photos by processed status
+        # Filter photos by processed status AND output file existence
         for photo in scan_result.photos:
+            # Skip if in manifest (unless force)
             if photo.stem in processed_stems and not config.force:
-                continue
+                # But check if output actually exists - if not, process anyway
+                output_file = config.output / f"{photo.stem}{photo.suffix}"
+                output_file_fav = config.output / f"{photo.stem}{FAV_SUFFIX}{photo.suffix}"
+                if output_file.exists() or output_file_fav.exists():
+                    continue
             workflow.photos_to_copy.append(photo)
 
         # Notify scan complete
@@ -234,21 +264,29 @@ class SequentialRunner:
             files = workflow.videos_to_copy
             file_type = "videos"
 
+        total = len(files)
         if cb.on_copy_start:
-            cb.on_copy_start(file_type, len(files))
+            cb.on_copy_start(file_type, total)
 
         copied = 0
-        for file_path in files:
-            output_file = config.output / file_path.name
+        progress_interval = max(1, total // 20)  # Report every 5%
+        for _idx, file_path in enumerate(files):
+            is_favorite = file_path.stem in workflow.favorites
+            output_filename = get_output_filename(file_path, is_favorite)
+            output_file = config.output / output_filename
+
             if output_file.exists() and not config.force:
                 continue
 
             shutil.copy2(file_path, output_file)
             copied += 1
 
+            # Report progress periodically
+            if cb.on_copy_progress and (copied % progress_interval == 0 or copied == total):
+                cb.on_copy_progress(file_type, copied, total)
+
             # Track in manifest
             if self.manifest:
-                is_favorite = file_path.stem in workflow.favorites
                 self.manifest.mark_completed(
                     stem=file_path.stem,
                     source_path=file_path,
@@ -298,12 +336,20 @@ class SequentialRunner:
                 result.total_input_bytes += transcode_result.input_size
                 result.total_output_bytes += transcode_result.output_size
 
+                # Rename to add __FAV suffix if favorite
+                final_output_path = transcode_result.output_path
+                if is_favorite and transcode_result.output_path:
+                    fav_filename = get_output_filename(video, is_favorite=True, extension=".mp4")
+                    fav_output_path = config.output / fav_filename
+                    transcode_result.output_path.rename(fav_output_path)
+                    final_output_path = fav_output_path
+
                 # Track in manifest
                 if self.manifest:
                     self.manifest.mark_completed(
                         stem=video.stem,
                         source_path=video,
-                        output_path=transcode_result.output_path,
+                        output_path=final_output_path,
                         input_size=transcode_result.input_size,
                         output_size=transcode_result.output_size,
                         is_favorite=is_favorite,

@@ -112,6 +112,64 @@ sudo cp mp4muxer_release /usr/local/bin/mp4muxer
 
 See [docs/dolby-vision-tools.md](docs/dolby-vision-tools.md) for detailed instructions.
 
+## Docker
+
+The Docker image includes all dependencies (ffmpeg, dovi_tool, mp4muxer, exiftool) pre-configured.
+
+### Quick Start
+
+```bash
+# Pull from Docker Hub
+docker pull jgorostegui/ios-media-toolkit
+
+# Or build locally
+docker build -t imt .
+```
+
+### CPU Encoding (x265)
+
+```bash
+docker run --rm \
+  -v /path/to/media:/media \
+  jgorostegui/ios-media-toolkit \
+  transcode /media/input.MOV -o /media/output --profile balanced
+```
+
+### GPU Encoding (NVENC)
+
+Requires NVIDIA GPU with [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed on the host.
+
+```bash
+docker run --rm --gpus all \
+  -v /path/to/media:/media \
+  jgorostegui/ios-media-toolkit \
+  transcode /media/input.MOV -o /media/output --profile nvenc_4k
+```
+
+### Process Albums
+
+```bash
+docker run --rm --gpus all \
+  -v /mnt/nas_photos:/media \
+  jgorostegui/ios-media-toolkit \
+  process /media/2025_Thailand/iPhone -o /media/output --profile nvenc_4k
+```
+
+### Verify Output
+
+```bash
+docker run --rm \
+  -v /path/to/media:/media \
+  jgorostegui/ios-media-toolkit \
+  verify /media/output.mp4 -r /media/original.MOV
+```
+
+### Check Dependencies
+
+```bash
+docker run --rm jgorostegui/ios-media-toolkit check
+```
+
 ## Usage
 
 ### Process Albums
