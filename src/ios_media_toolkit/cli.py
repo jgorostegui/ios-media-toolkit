@@ -252,7 +252,9 @@ def process(
         console.print(f"  Videos to copy:      {to_copy}")
         console.print(f"  Photos to copy:      {photos_to_copy}")
         if photos_favorites > 0:
-            console.print(f"  Favorites detected:  {photos_favorites + sum(1 for v in scan_result.videos if v.stem in favorites)}")
+            console.print(
+                f"  Favorites detected:  {photos_favorites + sum(1 for v in scan_result.videos if v.stem in favorites)}"
+            )
 
         if skipped > 0:
             console.print(f"\n[yellow]Would skip {skipped} files (already exist). Use --force to redo.[/yellow]")
