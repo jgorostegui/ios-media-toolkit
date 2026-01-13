@@ -1,15 +1,44 @@
 """Shared pytest fixtures for ios-media-toolkit tests."""
 
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
 
 
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+class StrippedResult:
+    """Wrapper around Result that strips ANSI codes from output."""
+
+    def __init__(self, result):
+        self._result = result
+        self._output = strip_ansi(result.output)
+
+    @property
+    def output(self):
+        return self._output
+
+    def __getattr__(self, name):
+        return getattr(self._result, name)
+
+
+class AnsiStrippingCliRunner(CliRunner):
+    """CliRunner that strips ANSI codes from output."""
+
+    def invoke(self, *args, **kwargs):
+        result = super().invoke(*args, **kwargs)
+        return StrippedResult(result)
+
+
 @pytest.fixture
 def cli_runner():
-    """Typer CLI test runner."""
-    return CliRunner()
+    """Typer CLI test runner with ANSI codes stripped."""
+    return AnsiStrippingCliRunner()
 
 
 @pytest.fixture
