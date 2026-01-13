@@ -1,15 +1,14 @@
 """Tests for sequential runner - critical workflow execution logic."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from ios_media_toolkit.encoder import Encoder, PipelineConfig, PipelineResult, RateMode
-from ios_media_toolkit.runners.base import RunnerCallbacks, RunnerResult
+from ios_media_toolkit.runners.base import RunnerCallbacks
 from ios_media_toolkit.runners.sequential import SequentialRunner
 from ios_media_toolkit.workflow import ArchiveWorkflow, create_archive_workflow
-from ios_media_toolkit.workflow.tasks import Task, TaskStatus, TaskType
+from ios_media_toolkit.workflow.tasks import TaskStatus
 
 
 @pytest.fixture
@@ -85,7 +84,7 @@ class TestSequentialRunnerRun:
             on_workflow_complete=lambda result: workflow_completed.append(result),
         )
 
-        result = runner.run(sample_workflow, callbacks)
+        runner.run(sample_workflow, callbacks)
 
         assert len(workflow_started) == 1
         assert workflow_started[0][0] == "archive"
@@ -103,7 +102,7 @@ class TestSequentialRunnerRun:
         source.rmdir()
 
         runner = SequentialRunner(dry_run=True)
-        result = runner.run(workflow)
+        runner.run(workflow)
 
         # Scan should fail, and transcode depends on scan+classify
         scan_task = workflow.get_task("scan")
@@ -162,7 +161,7 @@ class TestSequentialRunnerScan:
         workflow = create_archive_workflow(source, output, sample_profile, limit=2)
         runner = SequentialRunner(dry_run=True)
 
-        result = runner.run(workflow)
+        runner.run(workflow)
 
         assert len(workflow.videos_to_transcode) == 2
 
@@ -178,7 +177,7 @@ class TestSequentialRunnerScan:
         workflow = create_archive_workflow(source, output, sample_profile)
         runner = SequentialRunner(dry_run=True)
 
-        result = runner.run(workflow)
+        runner.run(workflow)
 
         assert len(workflow.videos_to_copy) == 1
         assert len(workflow.videos_to_transcode) == 0
@@ -195,7 +194,7 @@ class TestSequentialRunnerScan:
         workflow = create_archive_workflow(source, output, sample_profile, min_size_mb=1)
         runner = SequentialRunner(dry_run=True)
 
-        result = runner.run(workflow)
+        runner.run(workflow)
 
         assert len(workflow.videos_to_copy) == 1
         assert len(workflow.videos_to_transcode) == 0
@@ -212,12 +211,12 @@ class TestSequentialRunnerClassify:
 
         # Create photo with favorite rating
         (source / "photo.heic").touch()
-        (source / "photo.heic.xmp").write_text('<xmp:Rating>5</xmp:Rating>')
+        (source / "photo.heic.xmp").write_text("<xmp:Rating>5</xmp:Rating>")
 
         workflow = create_archive_workflow(source, output, sample_profile)
         runner = SequentialRunner(dry_run=True)
 
-        result = runner.run(workflow)
+        runner.run(workflow)
 
         assert "photo" in workflow.favorites
 
@@ -272,7 +271,7 @@ class TestSequentialRunnerCopy:
         workflow = create_archive_workflow(source, output, sample_profile, force=False)
         runner = SequentialRunner()
 
-        result = runner.run(workflow)
+        runner.run(workflow)
 
         # Original content preserved
         assert (output / "photo.heic").read_bytes() == b"old content"
@@ -372,7 +371,7 @@ class TestSequentialRunnerCallbacks:
         task_completes = []
 
         callbacks = RunnerCallbacks(
-            on_task_start=lambda id, desc: task_starts.append(id),
+            on_task_start=lambda id, _desc: task_starts.append(id),
             on_task_complete=lambda id, success: task_completes.append((id, success)),
         )
 
@@ -422,7 +421,7 @@ class TestSequentialRunnerManifest:
         workflow = create_archive_workflow(source, output, sample_profile)
         runner = SequentialRunner()
 
-        result = runner.run(workflow)
+        runner.run(workflow)
 
         # Check manifest was saved
         manifest_dir = output / ".imc"
@@ -437,7 +436,7 @@ class TestSequentialRunnerManifest:
         workflow = create_archive_workflow(source, output, sample_profile)
         runner = SequentialRunner(dry_run=True)
 
-        result = runner.run(workflow)
+        runner.run(workflow)
 
         manifest_dir = output / ".imc"
         assert not manifest_dir.exists()

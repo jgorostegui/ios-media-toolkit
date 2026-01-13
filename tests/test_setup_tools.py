@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ios_media_toolkit.setup_tools import (
-    USER_BIN_DIR,
     check_build_deps,
     check_tools_status,
     get_arch,

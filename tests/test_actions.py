@@ -130,7 +130,7 @@ class TestClassifyFavorites:
         photo = tmp_path / "IMG_001.heic"
         xmp = tmp_path / "IMG_001.heic.xmp"
         photo.touch()
-        xmp.write_text('<xmp:Rating>5</xmp:Rating>')
+        xmp.write_text("<xmp:Rating>5</xmp:Rating>")
 
         result = classify_favorites(tmp_path)
         assert result.success
@@ -142,7 +142,7 @@ class TestClassifyFavorites:
         photo = tmp_path / "IMG_001.heic"
         xmp = tmp_path / "IMG_001.heic.xmp"
         photo.touch()
-        xmp.write_text('<xmp:Rating>3</xmp:Rating>')
+        xmp.write_text("<xmp:Rating>3</xmp:Rating>")
 
         result = classify_favorites(tmp_path)
         assert result.success
@@ -153,7 +153,7 @@ class TestClassifyFavorites:
         photo = tmp_path / "IMG_001.heic"
         xmp = tmp_path / "IMG_001.heic.xmp"
         photo.touch()
-        xmp.write_text('<xmp:Rating>3</xmp:Rating>')
+        xmp.write_text("<xmp:Rating>3</xmp:Rating>")
 
         result = classify_favorites(tmp_path, rating_threshold=3)
         assert result.success
@@ -168,7 +168,7 @@ class TestIsFavoriteAction:
         photo = tmp_path / "IMG_001.heic"
         xmp = tmp_path / "IMG_001.heic.xmp"
         photo.touch()
-        xmp.write_text('<xmp:Rating>5</xmp:Rating>')
+        xmp.write_text("<xmp:Rating>5</xmp:Rating>")
 
         assert is_favorite(photo) is True
 
@@ -185,14 +185,12 @@ class TestClassifyFavoritesError:
 
     def test_classify_error_handling(self, tmp_path, monkeypatch):
         """Test classify_favorites error handling."""
+
         # Simulate an error by making classify_album raise an exception
         def raise_error(*args, **kwargs):
             raise RuntimeError("Test error")
 
-        monkeypatch.setattr(
-            "ios_media_toolkit.actions.classify._classify_album",
-            raise_error
-        )
+        monkeypatch.setattr("ios_media_toolkit.actions.classify._classify_album", raise_error)
 
         result = classify_favorites(tmp_path)
         assert not result.success

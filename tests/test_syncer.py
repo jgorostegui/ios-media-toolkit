@@ -1,13 +1,8 @@
 """Tests for syncer module."""
 
-from pathlib import Path
-
-from unittest.mock import MagicMock
-
 from ios_media_toolkit.syncer import (
     SyncResult,
     SyncStats,
-    cleanup_orphaned,
     copy_file,
     file_checksum,
     files_are_identical,
@@ -206,9 +201,7 @@ class TestCopyFile:
         src.write_text("content")
         dst.write_text("content")  # Same content
 
-        success, was_hardlink, was_skipped = copy_file(
-            src, dst, use_hardlinks=False, skip_identical=False
-        )
+        success, was_hardlink, was_skipped = copy_file(src, dst, use_hardlinks=False, skip_identical=False)
 
         assert success
         assert not was_skipped  # Should NOT skip even though identical
@@ -226,9 +219,7 @@ class TestCopyFile:
         monkeypatch.setattr("shutil.copy2", raise_error)
 
         # Skip hardlinks and identical check to hit the copy path
-        success, was_hardlink, was_skipped = copy_file(
-            src, dst, use_hardlinks=False, skip_identical=False
-        )
+        success, was_hardlink, was_skipped = copy_file(src, dst, use_hardlinks=False, skip_identical=False)
 
         assert not success
 

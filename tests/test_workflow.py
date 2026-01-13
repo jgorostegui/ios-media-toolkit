@@ -1,7 +1,5 @@
 """Tests for workflow module."""
 
-from pathlib import Path
-
 import pytest
 
 from ios_media_toolkit.encoder import Encoder, PipelineConfig, RateMode
