@@ -1,0 +1,128 @@
+# iOS Media Toolkit - Configuration Template
+#
+# Copy this file to one of these locations:
+#   - ~/.config/ios-media-toolkit/config.yaml
+#   - ./config.yaml (current directory)
+#   - ./imt.yaml (current directory)
+#
+# Or specify with: imt --config /path/to/config.yaml
+
+paths:
+  # Required: Set these paths or use environment variables
+  # Environment variables: IMT_SOURCE_BASE, IMT_OUTPUT_BASE, IMT_FAVORITES_OUTPUT
+  source_base: ""      # e.g., "/media/photos/iPhone/Albums"
+  output_base: ""      # e.g., "/media/photos/Processed"
+  favorites_output: "" # e.g., "/media/photos/Processed/Favorites"
+
+# External tool paths (leave empty to auto-detect from PATH or ~/.local/share/ios-media-toolkit/bin)
+tools:
+  ffmpeg: ""
+  ffprobe: ""
+  exiftool: ""
+  # Dolby Vision tools (required for DV preservation)
+  # Run `imt setup` to auto-install these
+  dovi_tool: ""
+  mp4muxer: ""
+
+transcode:
+  enabled: true
+  keep_originals: true
+  # Default profile to use (see profiles section below)
+  default_profile: "balanced"
+
+# Encoding profiles - configurable strategies for different use cases
+# Use: imt transcode video.MOV --profile archival
+# Compare: imt compare video.MOV (runs all profiles)
+profiles:
+  # Best quality, preserves Dolby Vision, slow
+  archival:
+    encoder: "x265"
+    resolution: "4k"
+    mode: "crf"
+    crf: 20
+    preset: "veryslow"
+    preserve_dolby_vision: true
+    description: "Best quality, DV preserved, slow"
+
+  # Good quality, preserves DV, reasonable speed
+  balanced:
+    encoder: "x265"
+    resolution: "4k"
+    mode: "crf"
+    crf: 25
+    preset: "medium"
+    preserve_dolby_vision: true
+    description: "Good quality, DV preserved, medium speed"
+
+  # Fast encoding using GPU, 4K, with DV preservation
+  # NVENC presets: p1(fastest) to p7(best quality)
+  # p6 ≈ x265 "slow" quality, good balance
+  nvenc_4k:
+    encoder: "nvenc"
+    resolution: "4k"
+    mode: "vbr"           # 2-pass VBR via -multipass fullres
+    bitrate: "15M"
+    maxrate: "20M"
+    preset: "slow"        # Maps to p6 (≈ x265 slow)
+    preserve_dolby_vision: true
+    description: "Fast GPU 2-pass, 4K, DV preserved"
+
+  # Fast encoding using GPU, 1080p downscale, with DV preservation
+  nvenc_1080p:
+    encoder: "nvenc"
+    resolution: "1080p"
+    mode: "vbr"           # 2-pass VBR
+    bitrate: "8M"
+    maxrate: "12M"
+    preset: "slow"        # Maps to p6
+    preserve_dolby_vision: true
+    description: "Fast GPU 2-pass, 1080p, DV preserved"
+
+  # Maximum compression, 4K, with DV preservation
+  compact:
+    encoder: "x265"
+    resolution: "4k"
+    mode: "crf"
+    crf: 28
+    preset: "medium"
+    preserve_dolby_vision: true
+    description: "Maximum compression, DV preserved"
+
+  # Quick preview/test, with DV preservation
+  preview:
+    encoder: "nvenc"
+    resolution: "1080p"
+    mode: "vbr"
+    bitrate: "4M"
+    maxrate: "6M"
+    preset: "p4"
+    preserve_dolby_vision: true
+    description: "Quick preview, DV preserved"
+
+convert:
+  heic_to_jpeg: true
+  jpeg_quality: 95
+  tool: "pillow"
+
+output:
+  favorites_only: false
+  include_originals: true
+  include_transcoded: true
+  include_converted: false
+  include_sidecars: false
+  sync_favorites_album: true
+  use_hardlinks: false
+
+favorites:
+  rating_threshold: 5
+  export_list: true
+
+processing:
+  parallel_jobs: 4
+  skip_processed: true
+  verify_checksums: true
+
+logging:
+  level: "INFO"
+  file_logging: true
+  console_logging: true

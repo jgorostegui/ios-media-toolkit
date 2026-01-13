@@ -1,0 +1,131 @@
+[project]
+name = "ios-media-toolkit"
+version = "0.1.0"
+description = "iPhone media processing with Dolby Vision preservation, encoding pipelines, and smart sync"
+authors = [
+    { name = "Josu Gorostegui" }
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.14"
+keywords = [
+    "ios",
+    "iphone",
+    "media",
+    "video",
+    "dolby-vision",
+    "hevc",
+    "hdr",
+    "transcoding",
+    "cli",
+    "x265",
+    "nvenc",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Video :: Conversion",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "typer>=0.15.0",
+    "pillow>=10.0",
+    "pillow-heif>=0.10.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.0",
+    "ruff>=0.8",
+]
+
+[project.urls]
+Homepage = "https://github.com/jgorostegui/ios-media-toolkit"
+Repository = "https://github.com/jgorostegui/ios-media-toolkit"
+Issues = "https://github.com/jgorostegui/ios-media-toolkit/issues"
+Documentation = "https://github.com/jgorostegui/ios-media-toolkit#readme"
+
+[project.scripts]
+imt = "ios_media_toolkit.cli:main_cli"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["uv_build>=0.7,<0.8"]
+build-backend = "uv_build"
+
+# Ruff - linting and formatting
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults (Click pattern)
+    "ARG001", # unused function argument (Click pattern)
+    "SIM102", # nested if statements (sometimes more readable)
+    "SIM108", # ternary operator (sometimes less readable)
+    "SIM110", # use any() (sometimes less readable)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ios_media_toolkit"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "-ra",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests requiring external tools",
+]
+
+# Coverage
+[tool.coverage.run]
+source = ["src/ios_media_toolkit"]
+branch = true
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+show_missing = true
+fail_under = 50
