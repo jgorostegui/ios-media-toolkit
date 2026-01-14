@@ -14,7 +14,8 @@ from rich.table import Table
 
 from . import __version__
 from .classifier import get_favorites
-from .config import PipelineConfig, load_config
+from .config import AppConfig, load_config
+from .constants import DNG_EXTENSIONS, MOV_EXTENSIONS
 from .encoder import PipelineResult, run_pipeline
 from .profiles import load_profiles_from_yaml
 from .runners import RunnerCallbacks, SequentialRunner
@@ -46,7 +47,7 @@ ConfigOption = Annotated[
 ]
 
 
-def get_config(config_path: Path | None = None, album: str | None = None) -> PipelineConfig:
+def get_config(config_path: Path | None = None, album: str | None = None) -> AppConfig:
     """Load configuration with optional album override."""
     return load_config(config_path, album)
 
@@ -59,10 +60,6 @@ def main(
 ):
     """iOS Media Toolkit - iPhone media processing with Dolby Vision preservation."""
     pass
-
-
-VIDEO_EXTENSIONS = {".mov", ".mp4", ".m4v", ".avi", ".mkv", ".MOV", ".MP4", ".M4V", ".AVI", ".MKV"}
-PHOTO_EXTENSIONS = {".heic", ".HEIC", ".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG", ".dng", ".DNG"}
 
 
 def format_size_change(compression_ratio: float) -> str:
@@ -91,7 +88,8 @@ def _load_yaml_config(config_path: Path | None = None) -> dict:
 def process(
     source: Annotated[Path, typer.Argument(help="Source folder to process", exists=True, file_okay=False)],
     output: Annotated[Path, typer.Option("--output", "-o", help="Output folder for processed files")] = None,
-    profile: Annotated[str, typer.Option("--profile", "-p", help="Encoding profile (see list-profiles)")] = None,
+    profile: Annotated[str, typer.Option("--profile", "-p", help="Video encoding profile (see list-profiles)")] = None,
+    dng_profile: Annotated[str, typer.Option("--dng-profile", "-d", help="DNG profile (see dng list-profiles)")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be done without making changes")] = False,
     force: Annotated[bool, typer.Option("--force", "-f", help="Force reprocessing (overwrite existing)")] = False,
     limit: Annotated[int, typer.Option("--limit", help="Limit number of videos to transcode (0=unlimited)")] = 0,
@@ -101,17 +99,18 @@ def process(
     config: ConfigOption = None,
 ):
     """
-    Process a folder - transcode videos using an encoding profile.
+    Process a folder - transcode videos and process DNGs.
 
-    Scans for videos, detects favorites from XMP ratings, and transcodes.
+    Scans for videos and photos, detects favorites from XMP ratings,
+    transcodes MOV videos, and processes DNG files.
 
     [bold]Examples:[/bold]
 
-        imt process ./iPhone -o ./output -p nvenc_1080p
+        imt process ./iPhone -o ./output -p nvenc_4k -d jpeg
 
-        imt process /media/album /media/processed --profile nvenc_4k
+        imt process /media/album /media/processed --profile nvenc_4k --dng-profile jpeg
 
-        imt process ./videos -o ./encoded --dry-run
+        imt process ./media -o ./encoded --dry-run
     """
     # Determine output directory
     if output is None:
@@ -124,7 +123,9 @@ def process(
 
     # Use default profile from config if not specified
     if profile is None:
-        profile = yaml_cfg.get("transcode", {}).get("default_profile", "balanced")
+        # Support: video.default_profile (new), transcode.default_profile (legacy)
+        video_cfg = yaml_cfg.get("video", {})
+        profile = video_cfg.get("default_profile") or yaml_cfg.get("transcode", {}).get("default_profile", "nvenc_4k")
 
     if profile and profile not in profiles:
         console.print(f"[red]Error:[/red] Unknown profile: {profile}")
@@ -138,11 +139,24 @@ def process(
         console.print("[red]Error:[/red] No profile specified and no default found")
         raise typer.Exit(1)
 
+    # Load DNG profile if specified
+    from .dng import load_dng_profiles
+
+    dng_profile_cfg = None
+    if dng_profile:
+        dng_profiles = load_dng_profiles(yaml_cfg)
+        if dng_profile not in dng_profiles:
+            console.print(f"[red]Error:[/red] Unknown DNG profile: {dng_profile}")
+            console.print(f"Available: {', '.join(dng_profiles.keys())}")
+            raise typer.Exit(1)
+        dng_profile_cfg = dng_profiles[dng_profile]
+
     # Create workflow
     workflow = create_archive_workflow(
         source=source,
         output=output,
         profile=profile_cfg,
+        dng_profile=dng_profile_cfg,
         dry_run=dry_run,
         force=force,
         limit=limit,
@@ -156,7 +170,9 @@ def process(
         console.print(f"\n[bold]Processing:[/bold] {source.name}")
         console.print(f"  Input:    {source}")
         console.print(f"  Output:   {output}")
-        console.print(f"  Profile:  {profile} - {profile_cfg.description}")
+        console.print(f"  Video:    {profile} - {profile_cfg.description}")
+        if dng_profile_cfg:
+            console.print(f"  DNG:      {dng_profile} - {dng_profile_cfg.description}")
         console.print(f"  Videos:   {videos} ({mov_count} to transcode)")
         console.print(f"  Photos:   {photos}")
         console.print()
@@ -167,6 +183,21 @@ def process(
 
     def on_transcode_complete(path: Path, in_size: int, out_size: int, success: bool):
         nonlocal favorites
+        if success:
+            in_mb = in_size / (1024 * 1024)
+            out_mb = out_size / (1024 * 1024)
+            ratio = 1.0 - (out_size / in_size) if in_size > 0 else 0
+            size_change = format_size_change(ratio)
+            fav = " ★" if path.stem in favorites else ""
+            console.print(f"  [green]✓[/green] {path.name}{fav} {in_mb:.1f}MB -> {out_mb:.1f}MB ({size_change})")
+        else:
+            console.print(f"  [red]✗[/red] {path.name}")
+
+    def on_dng_start(path: Path, idx: int, total: int):
+        fav = " ★" if path.stem in favorites else ""
+        console.print(f"  [{idx}/{total}] Processing: {path.name}{fav}...")
+
+    def on_dng_complete(path: Path, in_size: int, out_size: int, success: bool):
         if success:
             in_mb = in_size / (1024 * 1024)
             out_mb = out_size / (1024 * 1024)
@@ -193,6 +224,8 @@ def process(
         on_scan_complete=on_scan_complete,
         on_transcode_start=on_transcode_start,
         on_transcode_complete=on_transcode_complete,
+        on_dng_start=on_dng_start,
+        on_dng_complete=on_dng_complete,
         on_copy_start=on_copy_start,
         on_copy_progress=on_copy_progress,
         on_copy_complete=on_copy_complete,
@@ -208,10 +241,11 @@ def process(
         favorites = classify_result.favorites
 
         min_size_bytes = min_size * 1024 * 1024
-        MOV_EXTENSIONS = {".mov", ".MOV"}
 
         console.print(f"\n[bold]Dry Run:[/bold] {source.name}")
-        console.print(f"  Profile:  {profile} - {profile_cfg.description}")
+        console.print(f"  Video:    {profile} - {profile_cfg.description}")
+        if dng_profile_cfg:
+            console.print(f"  DNG:      {dng_profile} - {dng_profile_cfg.description}")
         console.print()
 
         to_transcode = 0
@@ -241,16 +275,31 @@ def process(
         if limit > 0 and to_transcode > limit:
             console.print(f"  [dim]Would limit to {limit} of {to_transcode} videos[/dim]")
 
-        # Photos summary
-        photos_to_copy = len(scan_result.photos)
+        # Separate DNGs from regular photos
+        dngs = [p for p in scan_result.photos if p.suffix in DNG_EXTENSIONS]
+        regular_photos = [p for p in scan_result.photos if p.suffix not in DNG_EXTENSIONS]
         photos_favorites = sum(1 for p in scan_result.photos if p.stem in favorites)
-        console.print(f"\n  [blue]COPY:[/blue] {photos_to_copy} photos ({photos_favorites} favorites)")
+
+        # List each photo
+        for photo in regular_photos:
+            size_mb = photo.stat().st_size / (1024 * 1024)
+            fav_marker = " [yellow]★[/yellow]" if photo.stem in favorites else ""
+            console.print(f"  [blue]COPY:[/blue] {photo.name} ({size_mb:.1f}MB){fav_marker}")
+
+        # List each DNG
+        if dng_profile_cfg:
+            for dng in dngs:
+                size_mb = dng.stat().st_size / (1024 * 1024)
+                fav_marker = " [yellow]★[/yellow]" if dng.stem in favorites else ""
+                console.print(f"  [magenta]PROCESS:[/magenta] {dng.name} ({size_mb:.1f}MB){fav_marker}")
 
         # Summary
         console.print("\n[bold]Summary:[/bold]")
         console.print(f"  Videos to transcode: {to_transcode}")
         console.print(f"  Videos to copy:      {to_copy}")
-        console.print(f"  Photos to copy:      {photos_to_copy}")
+        console.print(f"  Photos to copy:      {len(regular_photos)}")
+        if dng_profile_cfg:
+            console.print(f"  DNGs to process:     {len(dngs)}")
         if photos_favorites > 0:
             console.print(
                 f"  Favorites detected:  {photos_favorites + sum(1 for v in scan_result.videos if v.stem in favorites)}"
@@ -277,10 +326,11 @@ def process(
     # Summary
     console.print()
     total_copied = result.videos_copied + result.photos_copied
+    dng_str = f", {result.dngs_processed} DNGs" if result.dngs_processed > 0 else ""
     console.print(
-        f"[bold]Complete:[/bold] {result.videos_transcoded} transcoded, {total_copied} copied ({result.photos_copied} photos), {result.tasks_failed} failed"
+        f"[bold]Complete:[/bold] {result.videos_transcoded} transcoded, {total_copied} copied{dng_str}, {result.tasks_failed} failed"
     )
-    if result.videos_transcoded > 0 or total_copied > 0:
+    if result.videos_transcoded > 0 or total_copied > 0 or result.dngs_processed > 0:
         console.print(f"[green]Output files in:[/green] {output}")
 
     if result.errors:
@@ -735,6 +785,214 @@ def list_profiles(config: ConfigOption = None):
         desc = profile.description
 
         table.add_row(name, enc, res, mode, quality, dv, desc)
+
+    console.print(table)
+
+
+# =============================================================================
+# DNG Command Group
+# =============================================================================
+
+dng_app = typer.Typer(name="dng", help="DNG/ProRAW processing commands")
+app.add_typer(dng_app)
+
+
+@dng_app.command("info")
+def dng_info(
+    file: Annotated[Path, typer.Argument(help="DNG file to analyze", exists=True, dir_okay=False)],
+):
+    """
+    Show DNG file information.
+
+    Detects compression type (JXL/LJPEG), dimensions, and preview availability.
+    """
+    from .dng import detect_dng
+
+    info = detect_dng(file)
+
+    table = Table(title=f"DNG Info: {file.name}")
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="green")
+
+    table.add_row("Path", str(info.path))
+    table.add_row("File Size", f"{info.file_size / (1024 * 1024):.1f} MB")
+    table.add_row("Compression", info.compression.value.upper())
+    table.add_row("Dimensions", f"{info.dimensions[0]}x{info.dimensions[1]}")
+    table.add_row("Bits/Sample", str(info.bits_per_sample))
+    table.add_row("Has Preview", "Yes" if info.has_preview else "No")
+    if info.has_preview and info.preview_dimensions:
+        table.add_row("Preview Size", f"{info.preview_dimensions[0]}x{info.preview_dimensions[1]}")
+        table.add_row("Preview Bytes", f"{info.preview_size / (1024 * 1024):.1f} MB")
+    table.add_row("Can Recompress JXL", "[green]Yes[/green]" if info.can_recompress_jxl else "[yellow]No (LJPEG)[/yellow]")
+
+    console.print(table)
+
+
+@dng_app.command("compress")
+def dng_compress(
+    input_file: Annotated[Path, typer.Argument(help="Input DNG file", exists=True, dir_okay=False)],
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Output file path")] = None,
+    profile: Annotated[str, typer.Option("--profile", "-p", help="Compression profile")] = "balanced",
+    config: ConfigOption = None,
+):
+    """
+    Compress ProRAW DNG file.
+
+    For JXL DNGs (iPhone 17+): Recompresses with lossy JXL tiles, preserving RAW editing.
+    For LJPEG DNGs (iPhone 12-16): Falls back to Apple Preview extraction.
+
+    [bold]Examples:[/bold]
+
+        imt dng compress photo.DNG
+
+        imt dng compress photo.DNG -o output.DNG --profile compact
+
+        imt dng compress photo.DNG --profile jpeg  # Extract Apple JPEG instead
+    """
+    from .dng import (
+        DngMethod,
+        compress_jxl_dng,
+        detect_dng,
+        extract_preview,
+        load_dng_profiles,
+    )
+
+    # Load config and profiles
+    yaml_cfg = _load_yaml_config(config)
+    profiles = load_dng_profiles(yaml_cfg)
+
+    if profile not in profiles:
+        console.print(f"[red]Error:[/red] Unknown profile: {profile}")
+        console.print(f"Available: {', '.join(profiles.keys())}")
+        raise typer.Exit(1)
+
+    prof = profiles[profile]
+
+    # Detect DNG type
+    info = detect_dng(input_file)
+
+    console.print(f"[bold]Input:[/bold] {input_file.name}")
+    console.print(f"[bold]Compression:[/bold] {info.compression.value.upper()}")
+    console.print(f"[bold]Profile:[/bold] {profile} - {prof.description}")
+    console.print()
+
+    # Determine action based on method and DNG type
+    if prof.method == DngMethod.APPLE_PREVIEW:
+        # Always extract preview
+        if output is None:
+            output = input_file.with_suffix(".jpg")
+
+        with console.status("Extracting Apple preview..."):
+            result = extract_preview(input_file, output)
+
+        if result.success:
+            in_mb = result.input_size / (1024 * 1024)
+            out_mb = result.output_size / (1024 * 1024)
+            reduction = result.size_reduction * 100
+            console.print(f"[green]Success![/green] {in_mb:.1f}MB → {out_mb:.1f}MB ({reduction:.0f}% smaller)")
+            console.print(f"Output: {result.output_path}")
+        else:
+            console.print(f"[red]Failed:[/red] {result.error_message}")
+            raise typer.Exit(1)
+
+    elif prof.method == DngMethod.JXL_RECOMPRESS:
+        if info.can_recompress_jxl:
+            # JXL recompression
+            if output is None:
+                output = input_file.with_stem(f"{input_file.stem}_recomp")
+
+            with console.status(f"Compressing {info.compression.value.upper()} DNG (d={prof.distance})..."):
+                result = compress_jxl_dng(
+                    input_file,
+                    output,
+                    profile=prof.to_jxl_profile(),
+                    verbose=False,
+                )
+
+            if result.success:
+                in_mb = result.input_size / (1024 * 1024)
+                out_mb = result.output_size / (1024 * 1024)
+                reduction = result.size_reduction * 100
+                console.print(f"[green]Success![/green] {in_mb:.1f}MB → {out_mb:.1f}MB ({reduction:.0f}% smaller)")
+                console.print(f"Tiles processed: {result.tiles_processed}")
+                console.print(f"Output: {result.output_path}")
+            else:
+                console.print(f"[red]Failed:[/red] {result.error_message}")
+                raise typer.Exit(1)
+        else:
+            # LJPEG - cannot JXL recompress
+            console.print("[red]Error:[/red] LJPEG DNGs cannot be JXL-recompressed.")
+            console.print("Use --profile jpeg to extract Apple JPEG instead.")
+            raise typer.Exit(1)
+
+
+@dng_app.command("preview")
+def dng_preview(
+    input_file: Annotated[Path, typer.Argument(help="Input DNG file", exists=True, dir_okay=False)],
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Output JPEG path")] = None,
+):
+    """
+    Extract Apple preview from DNG.
+
+    The preview is a full-resolution JPEG with Apple's HDR tone mapping and colors.
+    Works with any ProRAW DNG (JXL or LJPEG).
+
+    [bold]Examples:[/bold]
+
+        imt dng preview photo.DNG
+
+        imt dng preview photo.DNG -o preview.jpg
+    """
+    from .dng import detect_dng, extract_preview
+
+    info = detect_dng(input_file)
+
+    if not info.has_preview:
+        console.print("[red]Error:[/red] DNG has no embedded preview")
+        raise typer.Exit(1)
+
+    if output is None:
+        output = input_file.with_suffix(".jpg")
+
+    console.print(f"[bold]Input:[/bold] {input_file.name}")
+    console.print(f"[bold]Preview:[/bold] {info.preview_dimensions[0]}x{info.preview_dimensions[1]}")
+    console.print()
+
+    with console.status("Extracting preview..."):
+        result = extract_preview(input_file, output)
+
+    if result.success:
+        in_mb = result.input_size / (1024 * 1024)
+        out_mb = result.output_size / (1024 * 1024)
+        reduction = result.size_reduction * 100
+        console.print(f"[green]Success![/green] {in_mb:.1f}MB → {out_mb:.1f}MB ({reduction:.0f}% smaller)")
+        console.print(f"Output: {result.output_path}")
+    else:
+        console.print(f"[red]Failed:[/red] {result.error_message}")
+        raise typer.Exit(1)
+
+
+@dng_app.command("list-profiles")
+def dng_list_profiles(config: ConfigOption = None):
+    """List available DNG compression profiles."""
+    from .dng import load_dng_profiles
+
+    yaml_cfg = _load_yaml_config(config)
+    profiles = load_dng_profiles(yaml_cfg)
+
+    table = Table(title="DNG Compression Profiles")
+    table.add_column("Name", style="cyan")
+    table.add_column("Method")
+    table.add_column("Settings")
+    table.add_column("Description")
+
+    for name, prof in profiles.items():
+        if prof.method.value == "jxl_recompress":
+            settings = f"d={prof.distance}, e={prof.effort}"
+        else:
+            settings = f"q={prof.quality}"
+
+        table.add_row(name, prof.method.value, settings, prof.description)
 
     console.print(table)
 

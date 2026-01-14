@@ -46,10 +46,10 @@ def transcode_video(
     Returns:
         TranscodeResult with metrics
     """
-    from ..encoder import Encoder, PipelineConfig, RateMode, run_pipeline
+    from ..encoder import Encoder, EncoderProfile, RateMode, run_pipeline
 
-    # Convert EncodingProfile to PipelineConfig for compatibility
-    pipeline_cfg = PipelineConfig(
+    # Convert EncodingProfile to EncoderProfile
+    pipeline_cfg = EncoderProfile(
         name=profile.name,
         encoder=Encoder.NVENC if profile.encoder == "nvenc" else Encoder.X265,
         resolution=profile.resolution,

@@ -5,12 +5,12 @@ from pathlib import Path
 
 from ..actions import classify_favorites, scan_folder
 from ..actions.scan import is_mov_file
+from ..constants import DNG_EXTENSIONS, FAV_SUFFIX
+from ..dng import DngMethod, compress_jxl_dng, extract_preview
 from ..encoder import run_pipeline
 from ..manifest import Manifest
 from ..workflow import ArchiveWorkflow, TaskStatus, TaskType
 from .base import RunnerCallbacks, RunnerResult
-
-FAV_SUFFIX = "__FAV"
 
 
 def get_output_filename(source_path: Path, is_favorite: bool, extension: str | None = None) -> str:
@@ -170,6 +170,9 @@ class SequentialRunner:
         elif task.task_type == TaskType.TRANSCODE:
             return self._run_transcode(workflow, cb, result)
 
+        elif task.task_type == TaskType.DNG_PROCESS:
+            return self._run_dng_process(workflow, cb, result)
+
         elif task.task_type == TaskType.VERIFY:
             # Not implemented in this workflow
             return True
@@ -211,15 +214,26 @@ class SequentialRunner:
             workflow.videos_to_transcode = workflow.videos_to_transcode[: config.limit]
 
         # Filter photos by processed status AND output file existence
+        # Separate DNGs from regular photos
         for photo in scan_result.photos:
             # Skip if in manifest (unless force)
             if photo.stem in processed_stems and not config.force:
                 # But check if output actually exists - if not, process anyway
-                output_file = config.output / f"{photo.stem}{photo.suffix}"
-                output_file_fav = config.output / f"{photo.stem}{FAV_SUFFIX}{photo.suffix}"
+                # For DNGs, output will be .jpg; for others, same extension
+                if photo.suffix in DNG_EXTENSIONS:
+                    output_file = config.output / f"{photo.stem}.jpg"
+                    output_file_fav = config.output / f"{photo.stem}{FAV_SUFFIX}.jpg"
+                else:
+                    output_file = config.output / f"{photo.stem}{photo.suffix}"
+                    output_file_fav = config.output / f"{photo.stem}{FAV_SUFFIX}{photo.suffix}"
                 if output_file.exists() or output_file_fav.exists():
                     continue
-            workflow.photos_to_copy.append(photo)
+
+            # Separate DNGs from regular photos
+            if photo.suffix in DNG_EXTENSIONS:
+                workflow.dngs_to_process.append(photo)
+            else:
+                workflow.photos_to_copy.append(photo)
 
         # Notify scan complete
         if cb.on_scan_complete:
@@ -374,4 +388,94 @@ class SequentialRunner:
                     cb.on_transcode_complete(video, 0, 0, False)
 
         result.videos_transcoded = success_count
+        return success_count > 0 or total == 0
+
+    def _run_dng_process(
+        self,
+        workflow: ArchiveWorkflow,
+        cb: RunnerCallbacks,
+        result: RunnerResult,
+    ) -> bool:
+        """Execute DNG processing task."""
+        config = workflow.config
+
+        if self.dry_run:
+            return True
+
+        # Create output directory
+        config.output.mkdir(parents=True, exist_ok=True)
+
+        dng_profile = config.dng_profile
+        if dng_profile is None:
+            return True  # No DNG processing configured
+
+        total = len(workflow.dngs_to_process)
+        if total == 0:
+            return True
+
+        success_count = 0
+
+        for idx, dng_path in enumerate(workflow.dngs_to_process):
+            is_favorite = dng_path.stem in workflow.favorites
+
+            # Determine output path based on method
+            if dng_profile.method == DngMethod.APPLE_PREVIEW:
+                ext = ".jpg"
+            else:
+                ext = ".DNG"
+
+            output_filename = get_output_filename(dng_path, is_favorite, extension=ext)
+            output_file = config.output / output_filename
+
+            if output_file.exists() and not config.force:
+                continue
+
+            # Notify start
+            if cb.on_dng_start:
+                cb.on_dng_start(dng_path, idx + 1, total)
+
+            try:
+                if dng_profile.method == DngMethod.APPLE_PREVIEW:
+                    dng_result = extract_preview(dng_path, output_file)
+                else:
+                    dng_result = compress_jxl_dng(
+                        dng_path,
+                        output_file,
+                        profile=dng_profile.to_jxl_profile(),
+                    )
+
+                if dng_result.success:
+                    success_count += 1
+                    result.total_input_bytes += dng_result.input_size
+                    result.total_output_bytes += dng_result.output_size
+
+                    # Track in manifest
+                    if self.manifest:
+                        self.manifest.mark_completed(
+                            stem=dng_path.stem,
+                            source_path=dng_path,
+                            output_path=output_file,
+                            input_size=dng_result.input_size,
+                            output_size=dng_result.output_size,
+                            is_favorite=is_favorite,
+                        )
+
+                    if cb.on_dng_complete:
+                        cb.on_dng_complete(dng_path, dng_result.input_size, dng_result.output_size, True)
+                else:
+                    error_msg = dng_result.error_message or "Unknown error"
+                    result.errors.append(f"DNG failed: {dng_path.name} - {error_msg}")
+                    if self.manifest:
+                        self.manifest.mark_error(dng_path.stem, dng_path, error_msg)
+                    if cb.on_dng_complete:
+                        cb.on_dng_complete(dng_path, 0, 0, False)
+
+            except Exception as e:
+                result.errors.append(f"DNG failed: {dng_path.name} - {e}")
+                if self.manifest:
+                    self.manifest.mark_error(dng_path.stem, dng_path, str(e))
+                if cb.on_dng_complete:
+                    cb.on_dng_complete(dng_path, 0, 0, False)
+
+        result.dngs_processed = success_count
         return success_count > 0 or total == 0

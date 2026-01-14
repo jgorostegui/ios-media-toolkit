@@ -5,6 +5,8 @@ from pathlib import Path
 from ios_media_toolkit.actions.classify import ClassifyResult, classify_favorites, is_favorite
 from ios_media_toolkit.actions.copy import CopyResult, copy_files, copy_photos
 from ios_media_toolkit.actions.scan import ScanResult, is_mov_file, scan_folder
+from ios_media_toolkit.actions.transcode import TranscodeResult
+from ios_media_toolkit.actions.verify import VerifyResult
 
 
 class TestScanResult:
@@ -309,3 +311,101 @@ class TestCopyPhotos:
         assert result.success
         assert result.files_copied == 1
         assert (output / "photo.heic").exists()
+
+
+class TestTranscodeResult:
+    """Tests for TranscodeResult dataclass."""
+
+    def test_successful_result(self):
+        """Test successful transcode result."""
+        result = TranscodeResult(
+            success=True,
+            input_path=Path("input.mov"),
+            output_path=Path("output.mp4"),
+            input_size=1000,
+            output_size=200,
+            duration_seconds=60.0,
+            encode_time_seconds=30.0,
+            profile_name="nvenc_4k",
+        )
+        assert result.success
+        assert result.input_size == 1000
+        assert result.output_size == 200
+        assert result.profile_name == "nvenc_4k"
+        assert result.error is None
+
+    def test_failed_result(self):
+        """Test failed transcode result."""
+        result = TranscodeResult(
+            success=False,
+            input_path=Path("input.mov"),
+            error="Encoding failed: codec not found",
+        )
+        assert not result.success
+        assert result.error == "Encoding failed: codec not found"
+        assert result.output_path is None
+
+    def test_compression_ratio(self):
+        """Test compression ratio calculation."""
+        result = TranscodeResult(
+            success=True,
+            input_path=Path("input.mov"),
+            output_path=Path("output.mp4"),
+            input_size=1000,
+            output_size=200,
+        )
+        assert result.compression_ratio == 0.8  # 80% reduction
+
+    def test_compression_ratio_zero_input(self):
+        """Test compression ratio with zero input size."""
+        result = TranscodeResult(
+            success=True,
+            input_path=Path("input.mov"),
+            output_path=Path("output.mp4"),
+            input_size=0,
+            output_size=200,
+        )
+        assert result.compression_ratio == 0.0
+
+
+class TestVerifyResult:
+    """Tests for VerifyResult dataclass."""
+
+    def test_successful_compatible_result(self):
+        """Test successful verification with compatible file."""
+        result = VerifyResult(
+            success=True,
+            is_compatible=True,
+            has_dolby_vision=True,
+            critical_failures=0,
+            warnings=1,
+        )
+        assert result.success
+        assert result.is_compatible
+        assert result.has_dolby_vision
+        assert result.critical_failures == 0
+        assert result.error is None
+
+    def test_successful_incompatible_result(self):
+        """Test successful verification with incompatible file."""
+        result = VerifyResult(
+            success=True,
+            is_compatible=False,
+            has_dolby_vision=False,
+            critical_failures=2,
+            warnings=0,
+        )
+        assert result.success
+        assert not result.is_compatible
+        assert result.critical_failures == 2
+
+    def test_failed_result(self):
+        """Test failed verification result."""
+        result = VerifyResult(
+            success=False,
+            error="File not found",
+        )
+        assert not result.success
+        assert result.error == "File not found"
+        assert not result.is_compatible
+        assert not result.has_dolby_vision
