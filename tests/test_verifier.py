@@ -317,7 +317,7 @@ class TestCheckHdrMetadata:
     @patch("ios_media_toolkit.verifier.get_stream_info")
     def test_bt2020_color_space(self, mock_stream_info):
         """Test BT.2020 color space passes."""
-        mock_stream_info.side_effect = lambda p, s, e: {
+        mock_stream_info.side_effect = lambda _p, _s, e: {
             "color_space": "bt2020nc",
             "color_transfer": "",
             "color_primaries": "",
@@ -333,7 +333,7 @@ class TestCheckHdrMetadata:
     @patch("ios_media_toolkit.verifier.get_stream_info")
     def test_hlg_transfer(self, mock_stream_info):
         """Test HLG color transfer passes."""
-        mock_stream_info.side_effect = lambda p, s, e: {
+        mock_stream_info.side_effect = lambda _p, _s, e: {
             "color_space": "",
             "color_transfer": "arib-std-b67",
             "color_primaries": "",
@@ -349,7 +349,7 @@ class TestCheckHdrMetadata:
     @patch("ios_media_toolkit.verifier.get_stream_info")
     def test_pq_transfer(self, mock_stream_info):
         """Test PQ color transfer passes."""
-        mock_stream_info.side_effect = lambda p, s, e: {
+        mock_stream_info.side_effect = lambda _p, _s, e: {
             "color_space": "",
             "color_transfer": "smpte2084",
             "color_primaries": "",
@@ -365,7 +365,7 @@ class TestCheckHdrMetadata:
     @patch("ios_media_toolkit.verifier.get_stream_info")
     def test_wrong_color_space_warns(self, mock_stream_info):
         """Test non-BT.2020 color space warns."""
-        mock_stream_info.side_effect = lambda p, s, e: {
+        mock_stream_info.side_effect = lambda _p, _s, e: {
             "color_space": "bt709",
             "color_transfer": "",
             "color_primaries": "",
@@ -380,7 +380,7 @@ class TestCheckHdrMetadata:
     @patch("ios_media_toolkit.verifier.get_stream_info")
     def test_bt2020_primaries(self, mock_stream_info):
         """Test BT.2020 color primaries passes."""
-        mock_stream_info.side_effect = lambda p, s, e: {
+        mock_stream_info.side_effect = lambda _p, _s, e: {
             "color_space": "",
             "color_transfer": "",
             "color_primaries": "bt2020",
@@ -400,7 +400,7 @@ class TestCheckMetadata:
     @patch("ios_media_toolkit.verifier.get_format_info")
     def test_gps_metadata_present(self, mock_format_info, mock_ffprobe):
         """Test GPS metadata detection."""
-        mock_format_info.side_effect = lambda p, e: {
+        mock_format_info.side_effect = lambda _p, e: {
             "com.apple.quicktime.location.ISO6709": "+37.785-122.406/",
             "com.apple.quicktime.make": "",
             "com.apple.quicktime.model": "",
@@ -454,7 +454,7 @@ class TestCheckMetadata:
     @patch("ios_media_toolkit.verifier.get_format_info")
     def test_device_info_present(self, mock_format_info, mock_ffprobe):
         """Test device info metadata detection."""
-        mock_format_info.side_effect = lambda p, e: {
+        mock_format_info.side_effect = lambda _p, e: {
             "com.apple.quicktime.location.ISO6709": "",
             "com.apple.quicktime.make": "Apple",
             "com.apple.quicktime.model": "iPhone 15 Pro",
@@ -473,7 +473,7 @@ class TestCheckMetadata:
     @patch("ios_media_toolkit.verifier.get_format_info")
     def test_device_info_model_only(self, mock_format_info, mock_ffprobe):
         """Test device info with only model (no make)."""
-        mock_format_info.side_effect = lambda p, e: {
+        mock_format_info.side_effect = lambda _p, e: {
             "com.apple.quicktime.location.ISO6709": "",
             "com.apple.quicktime.make": "",
             "com.apple.quicktime.model": "iPhone 15 Pro",

@@ -265,8 +265,6 @@ class TestIsLivePhotoVideo:
     @patch("subprocess.run")
     def test_invalid_json(self, mock_run):
         """Test invalid JSON returns True (assume Live Photo)."""
-        import json
-
         mock_run.return_value = MagicMock(returncode=0, stdout="not json")
 
         # When JSON parsing fails, assume it's a Live Photo
