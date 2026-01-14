@@ -1,0 +1,14 @@
+# Git LFS tracking for test assets
+# These files are used for integration/e2e tests
+# ProRAW DNG files (large, binary)
+*.DNG filter=lfs diff=lfs merge=lfs -text
+*.dng filter=lfs diff=lfs merge=lfs -text
+# Video files (large, binary)
+*.MOV filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.MP4 filter=lfs diff=lfs merge=lfs -text
+# Keep XMP as regular text (small, human-readable)
+# *.xmp - not tracked by LFS
+tests/assets/*.DNG filter=lfs diff=lfs merge=lfs -text
+tests/assets/*.MOV filter=lfs diff=lfs merge=lfs -text

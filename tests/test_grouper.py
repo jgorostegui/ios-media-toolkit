@@ -1,6 +1,7 @@
 """Tests for grouper module."""
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from ios_media_toolkit.grouper import (
     MediaGroup,
@@ -10,6 +11,7 @@ from ios_media_toolkit.grouper import (
     get_photos,
     get_standalone_videos,
     group_album_files,
+    is_live_photo_video,
     normalize_stem,
 )
 
@@ -213,3 +215,125 @@ class TestHelperFunctions:
 
         live = get_live_photos(tmp_path)
         assert live == []
+
+
+class TestIsLivePhotoVideo:
+    """Tests for Live Photo video detection."""
+
+    @patch("subprocess.run")
+    def test_live_photo_detected(self, mock_run):
+        """Test Live Photo metadata detected."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout='{"format": {"tags": {"com.apple.quicktime.live-photo.auto": "1"}}}'
+        )
+
+        assert is_live_photo_video(Path("test.mov")) is True
+
+    @patch("subprocess.run")
+    def test_not_live_photo(self, mock_run):
+        """Test non-Live Photo video detected."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout='{"format": {"tags": {"title": "Test Video"}}}'
+        )
+
+        assert is_live_photo_video(Path("test.mov")) is False
+
+    @patch("subprocess.run")
+    def test_ffprobe_failure(self, mock_run):
+        """Test ffprobe failure returns True (assume Live Photo)."""
+        mock_run.return_value = MagicMock(returncode=1, stdout="")
+
+        # When ffprobe fails, assume it's a Live Photo
+        assert is_live_photo_video(Path("test.mov")) is False
+
+    @patch("subprocess.run")
+    def test_ffprobe_timeout(self, mock_run):
+        """Test ffprobe timeout returns True (assume Live Photo)."""
+        import subprocess
+        mock_run.side_effect = subprocess.TimeoutExpired("ffprobe", 10)
+
+        # When ffprobe times out, assume it's a Live Photo
+        assert is_live_photo_video(Path("test.mov")) is True
+
+    @patch("subprocess.run")
+    def test_ffprobe_not_found(self, mock_run):
+        """Test ffprobe not found returns True (assume Live Photo)."""
+        mock_run.side_effect = FileNotFoundError()
+
+        # When ffprobe not found, assume it's a Live Photo
+        assert is_live_photo_video(Path("test.mov")) is True
+
+    @patch("subprocess.run")
+    def test_invalid_json(self, mock_run):
+        """Test invalid JSON returns True (assume Live Photo)."""
+        import json
+        mock_run.return_value = MagicMock(returncode=0, stdout="not json")
+
+        # When JSON parsing fails, assume it's a Live Photo
+        assert is_live_photo_video(Path("test.mov")) is True
+
+    @patch("subprocess.run")
+    def test_missing_tags(self, mock_run):
+        """Test missing tags key returns False."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout='{"format": {}}'
+        )
+
+        assert is_live_photo_video(Path("test.mov")) is False
+
+
+class TestLivePhotoGrouping:
+    """Tests for Live Photo grouping with mocked ffprobe."""
+
+    @patch("ios_media_toolkit.grouper.is_live_photo_video")
+    def test_live_photo_pair(self, mock_is_live_photo, tmp_path):
+        """Test grouping Live Photo pair."""
+        mock_is_live_photo.return_value = True
+
+        photo = tmp_path / "IMG_0001.heic"
+        video = tmp_path / "IMG_0001.mov"
+        photo.touch()
+        video.touch()
+
+        groups = group_album_files(tmp_path)
+
+        assert len(groups) == 1
+        assert groups["IMG_0001"].media_type == MediaType.LIVE_PHOTO
+        assert groups["IMG_0001"].primary == photo
+        assert groups["IMG_0001"].video == video
+
+    @patch("ios_media_toolkit.grouper.is_live_photo_video")
+    def test_non_live_photo_pair(self, mock_is_live_photo, tmp_path):
+        """Test grouping photo and video that are NOT a Live Photo pair."""
+        mock_is_live_photo.return_value = False
+
+        photo = tmp_path / "IMG_0001.heic"
+        video = tmp_path / "IMG_0001.mov"
+        photo.touch()
+        video.touch()
+
+        groups = group_album_files(tmp_path)
+
+        # Should create separate groups - photo keeps stem, video gets _video suffix
+        assert "IMG_0001" in groups
+        assert "IMG_0001_video" in groups
+        assert groups["IMG_0001"].media_type == MediaType.PHOTO
+        assert groups["IMG_0001_video"].media_type == MediaType.VIDEO
+
+    @patch("ios_media_toolkit.grouper.is_live_photo_video")
+    def test_get_live_photos_with_mock(self, mock_is_live_photo, tmp_path):
+        """Test get_live_photos with mocked detection."""
+        mock_is_live_photo.return_value = True
+
+        photo = tmp_path / "IMG_0001.heic"
+        video = tmp_path / "IMG_0001.mov"
+        photo.touch()
+        video.touch()
+
+        live_photos = get_live_photos(tmp_path)
+
+        assert len(live_photos) == 1
+        assert live_photos[0].is_live_photo

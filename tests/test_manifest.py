@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ios_media_toolkit.manifest import Manifest
+from ios_media_toolkit.manifest import FileState, Manifest, ManifestData
 
 
 class TestManifest:
@@ -103,3 +103,189 @@ class TestManifest:
         assert summary["completed"] == 1
         assert summary["errors"] == 1
         assert summary["favorites"] == 2
+
+
+class TestFileState:
+    """Tests for FileState dataclass."""
+
+    def test_to_dict(self):
+        """Test FileState serialization."""
+        state = FileState(
+            stem="test",
+            checksum="abc123",
+            processed_at="2025-01-01T00:00:00",
+            status="completed",
+            source_path="/source/test.mov",
+            output_path="/output/test.mp4",
+            input_size=1000,
+            output_size=500,
+            is_favorite=True,
+        )
+        d = state.to_dict()
+        assert d["stem"] == "test"
+        assert d["checksum"] == "abc123"
+        assert d["is_favorite"] is True
+
+    def test_from_dict(self):
+        """Test FileState deserialization."""
+        data = {
+            "stem": "test",
+            "checksum": "abc123",
+            "processed_at": "2025-01-01T00:00:00",
+            "status": "completed",
+            "source_path": "/source/test.mov",
+            "output_path": "/output/test.mp4",
+            "input_size": 1000,
+            "output_size": 500,
+            "is_favorite": True,
+            "error": None,
+        }
+        state = FileState.from_dict(data)
+        assert state.stem == "test"
+        assert state.is_favorite is True
+
+
+class TestManifestData:
+    """Tests for ManifestData dataclass."""
+
+    def test_to_dict(self):
+        """Test ManifestData serialization."""
+        data = ManifestData(
+            source_name="album",
+            output_path="/output",
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-01-01T00:00:00",
+            favorites=["fav1", "fav2"],
+        )
+        d = data.to_dict()
+        assert d["source_name"] == "album"
+        assert d["favorites"] == ["fav1", "fav2"]
+
+    def test_from_dict_backwards_compat(self):
+        """Test ManifestData handles old album_name field."""
+        old_format = {
+            "album_name": "old_album",  # Old field name
+            "output_path": "/output",
+            "created_at": "2025-01-01T00:00:00",
+            "updated_at": "2025-01-01T00:00:00",
+        }
+        data = ManifestData.from_dict(old_format)
+        assert data.source_name == "old_album"  # Should map to new field
+
+    def test_from_dict_with_files(self):
+        """Test ManifestData deserializes files correctly."""
+        d = {
+            "source_name": "album",
+            "output_path": "/output",
+            "created_at": "2025-01-01T00:00:00",
+            "updated_at": "2025-01-01T00:00:00",
+            "files": {
+                "file1": {
+                    "stem": "file1",
+                    "checksum": "abc",
+                    "processed_at": "2025-01-01T00:00:00",
+                    "status": "completed",
+                    "source_path": "/source/file1.mov",
+                    "output_path": "/output/file1.mp4",
+                    "input_size": 1000,
+                    "output_size": 500,
+                    "is_favorite": False,
+                    "error": None,
+                }
+            },
+        }
+        data = ManifestData.from_dict(d)
+        assert "file1" in data.files
+        assert data.files["file1"].status == "completed"
+
+
+class TestManifestEdgeCases:
+    """Tests for edge cases in Manifest class."""
+
+    def test_save_without_load(self, tmp_path):
+        """Test save returns early when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        # Don't call load() - data is None
+        manifest.save()  # Should return early without error
+        assert not (output / ".imc" / "manifest.json").exists()
+
+    def test_is_processed_without_load(self, tmp_path):
+        """Test is_processed returns False when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        # Don't call load()
+        assert manifest.is_processed("any_file") is False
+
+    def test_is_processed_without_checksum(self, tmp_path):
+        """Test is_processed returns True for completed file without checksum check."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        manifest.load()
+        manifest.mark_completed("file1", Path("/source/file1.mov"))
+
+        # No checksum provided - should still return True for completed file
+        assert manifest.is_processed("file1") is True
+
+    def test_get_processed_stems_without_load(self, tmp_path):
+        """Test get_processed_stems returns empty set when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        # Don't call load()
+        assert manifest.get_processed_stems() == set()
+
+    def test_mark_completed_without_load(self, tmp_path):
+        """Test mark_completed auto-loads when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        # Don't call load() - mark_completed should auto-load
+        manifest.mark_completed("file1", Path("/source/file1.mov"))
+        assert manifest.data is not None
+        assert "file1" in manifest.data.files
+
+    def test_mark_error_without_load(self, tmp_path):
+        """Test mark_error auto-loads when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        manifest.mark_error("file1", Path("/source/file1.mov"), "Test error")
+        assert manifest.data is not None
+        assert manifest.data.files["file1"].status == "error"
+
+    def test_mark_skipped_without_load(self, tmp_path):
+        """Test mark_skipped auto-loads when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        manifest.mark_skipped("file1", Path("/source/file1.mov"), "Test reason")
+        assert manifest.data is not None
+        assert manifest.data.files["file1"].status == "skipped"
+
+    def test_set_favorites_without_load(self, tmp_path):
+        """Test set_favorites auto-loads when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        manifest.set_favorites(["fav1", "fav2"])
+        assert manifest.data is not None
+        assert manifest.data.favorites == ["fav1", "fav2"]
+
+    def test_export_favorites_without_load(self, tmp_path):
+        """Test export_favorites_list returns early when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        manifest.export_favorites_list()  # Should return early without error
+        assert not (output / ".imc" / "favorites.list").exists()
+
+    def test_get_summary_without_load(self, tmp_path):
+        """Test get_summary returns empty dict when data is None."""
+        output = tmp_path / "output"
+        output.mkdir()
+        manifest = Manifest(output, "test_album")
+        assert manifest.get_summary() == {}

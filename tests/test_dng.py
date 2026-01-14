@@ -114,28 +114,124 @@ class TestDetectDng:
         assert info.compression_value == 7
         assert info.is_ljpeg is True
 
+    def test_detect_uncompressed_dng(self, tmp_path):
+        """Test detecting uncompressed DNG."""
+        dng_file = tmp_path / "test_uncompressed.dng"
+        header = self._create_minimal_tiff_header(compression=1)
+        dng_file.write_bytes(header)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="4032\n3024\n10\n0\n0\n0",
+            )
+            info = detect_dng(dng_file)
+
+        assert info.compression == DngCompression.UNCOMPRESSED
+        assert info.compression_value == 1
+
+    def test_detect_unknown_compression(self, tmp_path):
+        """Test detecting DNG with unknown compression."""
+        dng_file = tmp_path / "test_unknown.dng"
+        # Use 999 which is valid for 16-bit but not a known compression type
+        header = self._create_minimal_tiff_header(compression=999)
+        dng_file.write_bytes(header)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="4032\n3024\n10\n0\n0\n0",
+            )
+            info = detect_dng(dng_file)
+
+        assert info.compression == DngCompression.UNKNOWN
+        assert info.compression_value == 999
+
+    def test_detect_big_endian_tiff(self, tmp_path):
+        """Test detecting DNG with big-endian byte order."""
+        dng_file = tmp_path / "test_be.dng"
+        header = self._create_minimal_tiff_header(compression=7, big_endian=True)
+        dng_file.write_bytes(header)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="4032\n3024\n10\n0\n0\n0",
+            )
+            info = detect_dng(dng_file)
+
+        assert info.compression == DngCompression.LJPEG
+
+    def test_detect_invalid_tiff(self, tmp_path):
+        """Test detecting invalid TIFF returns unknown compression."""
+        dng_file = tmp_path / "test_invalid.dng"
+        dng_file.write_bytes(b"NOT A TIFF FILE")
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="0\n0\n0\n0\n0\n0",
+            )
+            info = detect_dng(dng_file)
+
+        assert info.compression == DngCompression.UNKNOWN
+        assert info.compression_value == 0
+
+    def test_detect_with_empty_exiftool_output(self, tmp_path):
+        """Test handling empty exiftool output."""
+        dng_file = tmp_path / "test.dng"
+        header = self._create_minimal_tiff_header(compression=7)
+        dng_file.write_bytes(header)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="",  # Empty output
+            )
+            info = detect_dng(dng_file)
+
+        assert info.dimensions == (0, 0)
+        assert info.has_preview is False
+
+    def test_detect_with_partial_exiftool_output(self, tmp_path):
+        """Test handling partial exiftool output."""
+        dng_file = tmp_path / "test.dng"
+        header = self._create_minimal_tiff_header(compression=7)
+        dng_file.write_bytes(header)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="4032\n3024",  # Missing fields
+            )
+            info = detect_dng(dng_file)
+
+        assert info.dimensions == (4032, 3024)
+        assert info.bits_per_sample == 0
+        assert info.has_preview is False
+
     @staticmethod
-    def _create_minimal_tiff_header(compression: int = 7) -> bytes:
+    def _create_minimal_tiff_header(compression: int = 7, big_endian: bool = False) -> bytes:
         """Create a minimal valid TIFF header with compression tag."""
-        # Little-endian TIFF header
+        e = ">" if big_endian else "<"
         header = bytearray()
-        header.extend(b"II")  # Little-endian
-        header.extend(struct.pack("<H", 42))  # TIFF magic
-        header.extend(struct.pack("<I", 8))  # IFD0 offset
+        header.extend(b"MM" if big_endian else b"II")  # Byte order
+        header.extend(struct.pack(f"{e}H", 42))  # TIFF magic
+        header.extend(struct.pack(f"{e}I", 8))  # IFD0 offset
 
         # IFD0 at offset 8
         num_entries = 1
-        header.extend(struct.pack("<H", num_entries))
+        header.extend(struct.pack(f"{e}H", num_entries))
 
         # Compression tag (259)
-        header.extend(struct.pack("<H", 259))  # Tag
-        header.extend(struct.pack("<H", 3))  # Type: SHORT
-        header.extend(struct.pack("<I", 1))  # Count
-        header.extend(struct.pack("<H", compression))  # Value
-        header.extend(struct.pack("<H", 0))  # Padding
+        header.extend(struct.pack(f"{e}H", 259))  # Tag
+        header.extend(struct.pack(f"{e}H", 3))  # Type: SHORT
+        header.extend(struct.pack(f"{e}I", 1))  # Count
+        header.extend(struct.pack(f"{e}H", compression))  # Value
+        header.extend(struct.pack(f"{e}H", 0))  # Padding
 
         # Next IFD offset
-        header.extend(struct.pack("<I", 0))
+        header.extend(struct.pack(f"{e}I", 0))
 
         return bytes(header)
 

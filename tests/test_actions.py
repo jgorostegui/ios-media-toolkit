@@ -1,12 +1,13 @@
 """Tests for actions module - valuable business logic tests."""
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from ios_media_toolkit.actions.classify import ClassifyResult, classify_favorites, is_favorite
 from ios_media_toolkit.actions.copy import CopyResult, copy_files, copy_photos
 from ios_media_toolkit.actions.scan import ScanResult, is_mov_file, scan_folder
 from ios_media_toolkit.actions.transcode import TranscodeResult
-from ios_media_toolkit.actions.verify import VerifyResult
+from ios_media_toolkit.actions.verify import VerifyResult, verify_dv_compatibility
 
 
 class TestScanResult:
@@ -409,3 +410,66 @@ class TestVerifyResult:
         assert result.error == "File not found"
         assert not result.is_compatible
         assert not result.has_dolby_vision
+
+
+class TestVerifyDvCompatibility:
+    """Tests for verify_dv_compatibility function."""
+
+    @patch("ios_media_toolkit.actions.verify.verify_file")
+    def test_verify_compatible_file(self, mock_verify):
+        """Test verification of compatible file."""
+        mock_result = MagicMock()
+        mock_result.is_compatible = True
+        mock_result.has_dolby_vision = True
+        mock_result.critical_failures = 0
+        mock_result.warnings = 1
+        mock_verify.return_value = mock_result
+
+        result = verify_dv_compatibility(Path("test.mp4"))
+
+        assert result.success
+        assert result.is_compatible
+        assert result.has_dolby_vision
+        assert result.critical_failures == 0
+        assert result.warnings == 1
+
+    @patch("ios_media_toolkit.actions.verify.verify_file")
+    def test_verify_incompatible_file(self, mock_verify):
+        """Test verification of incompatible file."""
+        mock_result = MagicMock()
+        mock_result.is_compatible = False
+        mock_result.has_dolby_vision = False
+        mock_result.critical_failures = 2
+        mock_result.warnings = 0
+        mock_verify.return_value = mock_result
+
+        result = verify_dv_compatibility(Path("test.mp4"))
+
+        assert result.success
+        assert not result.is_compatible
+        assert result.critical_failures == 2
+
+    @patch("ios_media_toolkit.actions.verify.verify_file")
+    def test_verify_with_reference(self, mock_verify):
+        """Test verification with reference file."""
+        mock_result = MagicMock()
+        mock_result.is_compatible = True
+        mock_result.has_dolby_vision = True
+        mock_result.critical_failures = 0
+        mock_result.warnings = 0
+        mock_verify.return_value = mock_result
+
+        result = verify_dv_compatibility(Path("output.mp4"), reference=Path("original.mov"))
+
+        assert result.success
+        mock_verify.assert_called_once_with(Path("output.mp4"), Path("original.mov"))
+
+    @patch("ios_media_toolkit.actions.verify.verify_file")
+    def test_verify_error_handling(self, mock_verify):
+        """Test verification error handling."""
+        mock_verify.side_effect = FileNotFoundError("File not found")
+
+        result = verify_dv_compatibility(Path("nonexistent.mp4"))
+
+        assert not result.success
+        assert "File not found" in result.error

@@ -1,0 +1,95 @@
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 6.0.0">
+   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+      <rdf:Description rdf:about=""
+            xmlns:exif="http://ns.adobe.com/exif/1.0/"
+            xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+            xmlns:aux="http://ns.adobe.com/exif/1.0/aux/"
+            xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+            xmlns:exifEX="http://cipa.jp/exif/1.0/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/">
+         <exif:WhiteBalance>0</exif:WhiteBalance>
+         <exif:ExposureMode>0</exif:ExposureMode>
+         <exif:PixelYDimension>3024</exif:PixelYDimension>
+         <exif:ISOSpeedRatings>
+            <rdf:Seq>
+               <rdf:li>5000</rdf:li>
+            </rdf:Seq>
+         </exif:ISOSpeedRatings>
+         <exif:GPSLatitude>42,48.9068N</exif:GPSLatitude>
+         <exif:GPSLongitude>1,37.2088W</exif:GPSLongitude>
+         <exif:GPSTimeStamp>2026-01-14T00:05:40</exif:GPSTimeStamp>
+         <exif:GPSImgDirection>273301/1195</exif:GPSImgDirection>
+         <exif:GPSDestBearingRef>T</exif:GPSDestBearingRef>
+         <exif:ApertureValue>56791/24963</exif:ApertureValue>
+         <exif:GPSAltitudeRef>0</exif:GPSAltitudeRef>
+         <exif:SubsecTimeOriginal>158</exif:SubsecTimeOriginal>
+         <exif:GPSImgDirectionRef>T</exif:GPSImgDirectionRef>
+         <exif:ExposureTime>1</exif:ExposureTime>
+         <exif:GPSLongitudeRef>W</exif:GPSLongitudeRef>
+         <exif:BrightnessValue>-40313/3103</exif:BrightnessValue>
+         <exif:FocalLength>1551800/699009</exif:FocalLength>
+         <exif:GPSDestBearing>273301/1195</exif:GPSDestBearing>
+         <exif:SubjectArea>
+            <rdf:Seq>
+               <rdf:li>2010</rdf:li>
+               <rdf:li>1509</rdf:li>
+               <rdf:li>2249</rdf:li>
+               <rdf:li>1348</rdf:li>
+            </rdf:Seq>
+         </exif:SubjectArea>
+         <exif:DigitalZoomRatio>95173/52748</exif:DigitalZoomRatio>
+         <exif:ShutterSpeedValue>12347/38311</exif:ShutterSpeedValue>
+         <exif:SubsecTimeDigitized>158</exif:SubsecTimeDigitized>
+         <exif:GPSLatitudeRef>N</exif:GPSLatitudeRef>
+         <exif:FNumber>11/5</exif:FNumber>
+         <exif:ExposureProgram>2</exif:ExposureProgram>
+         <exif:GPSSpeed>0</exif:GPSSpeed>
+         <exif:SensingMethod>2</exif:SensingMethod>
+         <exif:MeteringMode>5</exif:MeteringMode>
+         <exif:GPSAltitude>956769/2140</exif:GPSAltitude>
+         <exif:SceneType>1</exif:SceneType>
+         <exif:Flash rdf:parseType="Resource">
+            <exif:Function>False</exif:Function>
+            <exif:Fired>False</exif:Fired>
+            <exif:Return>0</exif:Return>
+            <exif:Mode>2</exif:Mode>
+            <exif:RedEyeMode>False</exif:RedEyeMode>
+         </exif:Flash>
+         <exif:OffsetTimeOriginal>+01:00</exif:OffsetTimeOriginal>
+         <exif:GPSSpeedRef>K</exif:GPSSpeedRef>
+         <exif:ExposureBiasValue>33/16</exif:ExposureBiasValue>
+         <exif:PixelXDimension>4032</exif:PixelXDimension>
+         <exif:FocalLenIn35mmFilm>24</exif:FocalLenIn35mmFilm>
+         <exif:ExifVersion>0232</exif:ExifVersion>
+         <xmp:CreateDate>2026-01-14T01:05:51</xmp:CreateDate>
+         <xmp:ModifyDate>2026-01-14T01:05:51</xmp:ModifyDate>
+         <xmp:CreatorTool>26.2</xmp:CreatorTool>
+         <aux:LensInfo>1551800/699009 1081/64 1244236/699009 1433/512</aux:LensInfo>
+         <aux:Lens>iPhone 17 Pro Max back triple camera 2.22mm f/2.2</aux:Lens>
+         <tiff:Orientation>6</tiff:Orientation>
+         <tiff:Compression>52546</tiff:Compression>
+         <tiff:PhotometricInterpretation>34892</tiff:PhotometricInterpretation>
+         <tiff:Make>Apple</tiff:Make>
+         <tiff:Model>iPhone 17 Pro Max</tiff:Model>
+         <exifEX:PhotographicSensitivity>5000</exifEX:PhotographicSensitivity>
+         <exifEX:LensMake>Apple</exifEX:LensMake>
+         <exifEX:LensModel>iPhone 17 Pro Max back triple camera 2.22mm f/2.2</exifEX:LensModel>
+         <exifEX:LensSpecification>
+            <rdf:Seq>
+               <rdf:li>1551800/699009</rdf:li>
+               <rdf:li>1081/64</rdf:li>
+               <rdf:li>1244236/699009</rdf:li>
+               <rdf:li>1433/512</rdf:li>
+            </rdf:Seq>
+         </exifEX:LensSpecification>
+         <dc:subject>
+            <rdf:Seq>
+               <rdf:li>Superfav17</rdf:li>
+               <rdf:li>Photos</rdf:li>
+            </rdf:Seq>
+         </dc:subject>
+         <photoshop:DateCreated>2026-01-14T01:05:51</photoshop:DateCreated>
+      </rdf:Description>
+   </rdf:RDF>
+</x:xmpmeta>
