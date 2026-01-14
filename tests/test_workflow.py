@@ -2,7 +2,7 @@
 
 import pytest
 
-from ios_media_toolkit.encoder import Encoder, PipelineConfig, RateMode
+from ios_media_toolkit.encoder import Encoder, EncoderProfile, RateMode
 from ios_media_toolkit.workflow import create_archive_workflow
 from ios_media_toolkit.workflow.tasks import Task, TaskStatus, TaskType, Workflow
 
@@ -10,7 +10,7 @@ from ios_media_toolkit.workflow.tasks import Task, TaskStatus, TaskType, Workflo
 @pytest.fixture
 def sample_profile():
     """Create a sample encoding profile for tests."""
-    return PipelineConfig(
+    return EncoderProfile(
         name="test_balanced",
         encoder=Encoder.X265,
         resolution="1080p",

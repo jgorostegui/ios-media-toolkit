@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ios_media_toolkit.encoder import Encoder, PipelineConfig, PipelineResult, RateMode
+from ios_media_toolkit.encoder import Encoder, EncoderProfile, PipelineResult, RateMode
 from ios_media_toolkit.runners.base import RunnerCallbacks
 from ios_media_toolkit.runners.sequential import SequentialRunner
 from ios_media_toolkit.workflow import ArchiveWorkflow, create_archive_workflow
@@ -14,7 +14,7 @@ from ios_media_toolkit.workflow.tasks import TaskStatus
 @pytest.fixture
 def sample_profile():
     """Create a sample encoding profile."""
-    return PipelineConfig(
+    return EncoderProfile(
         name="test",
         encoder=Encoder.X265,
         resolution="1080p",

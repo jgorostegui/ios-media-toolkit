@@ -40,12 +40,9 @@ class PathsConfig:
 @dataclass
 class TranscodeConfig:
     enabled: bool = True
-    keep_originals: bool = True
     encoder: str = "ffmpeg"
     bitrate: str = "7M"
     preset: str = "veryslow"
-    gpu_enabled: bool = False
-    gpu_encoder: str = "hevc_nvenc"
 
 
 @dataclass
@@ -63,7 +60,7 @@ class OutputConfig:
     include_converted: bool = False
     include_sidecars: bool = False
     sync_favorites_album: bool = True
-    use_hardlinks: bool = True
+    use_hardlinks: bool = False  # Default matches config/global.yaml
 
 
 @dataclass
@@ -87,7 +84,7 @@ class LoggingConfig:
 
 
 @dataclass
-class PipelineConfig:
+class AppConfig:
     paths: PathsConfig = field(default_factory=PathsConfig)
     transcode: TranscodeConfig = field(default_factory=TranscodeConfig)
     convert: ConvertConfig = field(default_factory=ConvertConfig)
@@ -97,7 +94,7 @@ class PipelineConfig:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
 
     @classmethod
-    def from_yaml(cls, path: Path) -> PipelineConfig:
+    def from_yaml(cls, path: Path) -> AppConfig:
         """Load configuration from YAML file."""
         if not path.exists():
             return cls()
@@ -108,7 +105,7 @@ class PipelineConfig:
         return cls._from_dict(data)
 
     @classmethod
-    def _from_dict(cls, data: dict) -> PipelineConfig:
+    def _from_dict(cls, data: dict) -> AppConfig:
         """Create config from dictionary."""
         config = cls()
 
@@ -149,7 +146,7 @@ class PipelineConfig:
 
         return config
 
-    def merge_album_config(self, album_config_path: Path) -> PipelineConfig:
+    def merge_album_config(self, album_config_path: Path) -> AppConfig:
         """Merge album-specific config overrides."""
         if not album_config_path.exists():
             return self
@@ -158,7 +155,7 @@ class PipelineConfig:
             overrides = yaml.safe_load(f) or {}
 
         # Create a copy and apply overrides
-        merged = PipelineConfig._from_dict({})
+        merged = AppConfig._from_dict({})
 
         # Copy current values
         for attr in ["paths", "transcode", "convert", "output", "favorites", "processing", "logging"]:
@@ -168,7 +165,7 @@ class PipelineConfig:
                 setattr(dst, key, getattr(src, key))
 
         # Apply overrides
-        return PipelineConfig._from_dict({**self._to_dict(), **overrides})
+        return AppConfig._from_dict({**self._to_dict(), **overrides})
 
     def _to_dict(self) -> dict:
         """Convert config to dictionary."""
@@ -197,7 +194,7 @@ def _get_default_config_dir() -> Path:
 
 def load_config(
     global_config_path: Path | None = None, album_name: str | None = None, config_dir: Path | None = None
-) -> PipelineConfig:
+) -> AppConfig:
     """
     Load configuration with optional album-specific overrides.
 
@@ -207,7 +204,7 @@ def load_config(
         config_dir: Config directory for album overrides
 
     Returns:
-        Merged PipelineConfig
+        Merged AppConfig
     """
     if config_dir is None:
         config_dir = _get_default_config_dir()
@@ -226,7 +223,7 @@ def load_config(
                 break
 
     # Load global config (returns defaults if file doesn't exist)
-    config = PipelineConfig.from_yaml(global_config_path) if global_config_path else PipelineConfig()
+    config = AppConfig.from_yaml(global_config_path) if global_config_path else AppConfig()
 
     # Merge album-specific overrides if provided
     if album_name and config_dir:
@@ -236,7 +233,7 @@ def load_config(
     return config
 
 
-def validate_paths(config: PipelineConfig) -> list[str]:
+def validate_paths(config: AppConfig) -> list[str]:
     """
     Validate that required paths are configured.
 

@@ -3,26 +3,26 @@
 from pathlib import Path
 
 from ios_media_toolkit.config import (
-    PipelineConfig,
+    AppConfig,
     load_config,
 )
 
 
-class TestPipelineConfig:
-    """Tests for PipelineConfig dataclass."""
+class TestAppConfig:
+    """Tests for AppConfig dataclass."""
 
     def test_default_config(self):
         """Test default configuration values."""
-        config = PipelineConfig()
+        config = AppConfig()
 
         assert config.transcode.enabled is True
         assert config.transcode.encoder == "ffmpeg"
         assert config.favorites.rating_threshold == 5
-        assert config.output.use_hardlinks is True
+        assert config.output.use_hardlinks is False
 
     def test_from_yaml_missing_file(self, tmp_path):
         """Test loading from non-existent file returns defaults."""
-        config = PipelineConfig.from_yaml(tmp_path / "nonexistent.yaml")
+        config = AppConfig.from_yaml(tmp_path / "nonexistent.yaml")
 
         assert config.transcode.enabled is True
 
@@ -41,7 +41,7 @@ transcode:
 favorites:
   rating_threshold: 4
 """)
-        config = PipelineConfig.from_yaml(config_file)
+        config = AppConfig.from_yaml(config_file)
 
         assert config.paths.source_base == Path("/custom/source")
         assert config.paths.output_base == Path("/custom/output")
@@ -56,7 +56,7 @@ favorites:
 transcode:
   bitrate: "10M"
 """)
-        config = PipelineConfig.from_yaml(config_file)
+        config = AppConfig.from_yaml(config_file)
 
         # Changed value
         assert config.transcode.bitrate == "10M"
@@ -84,7 +84,7 @@ transcode:
 """)
 
         # Load and merge
-        config = PipelineConfig.from_yaml(base_config)
+        config = AppConfig.from_yaml(base_config)
         merged = config.merge_album_config(album_config)
 
         assert merged.transcode.bitrate == "10M"
@@ -92,7 +92,7 @@ transcode:
 
     def test_to_dict(self):
         """Test converting config to dictionary."""
-        config = PipelineConfig()
+        config = AppConfig()
         data = config._to_dict()
 
         assert "paths" in data

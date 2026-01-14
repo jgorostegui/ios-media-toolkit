@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .classifier import is_favorite
-from .config import PipelineConfig
+from .config import AppConfig
 from .grouper import group_album_files
 
 logger = logging.getLogger(__name__)
@@ -193,7 +193,7 @@ def sync_file(
     return True
 
 
-def sync_album(album_name: str, config: PipelineConfig, dry_run: bool = False) -> SyncResult:
+def sync_album(album_name: str, config: AppConfig, dry_run: bool = False) -> SyncResult:
     """
     Sync an album to the curated output directory.
 
@@ -284,7 +284,7 @@ def sync_album(album_name: str, config: PipelineConfig, dry_run: bool = False) -
     return SyncResult(success=stats.errors == 0, album=album_name, stats=stats)
 
 
-def sync_all_albums(config: PipelineConfig, dry_run: bool = False) -> list[SyncResult]:
+def sync_all_albums(config: AppConfig, dry_run: bool = False) -> list[SyncResult]:
     """
     Sync all albums found in source directory.
 
@@ -317,7 +317,7 @@ def sync_all_albums(config: PipelineConfig, dry_run: bool = False) -> list[SyncR
     return results
 
 
-def cleanup_orphaned(album_name: str, config: PipelineConfig, dry_run: bool = False) -> int:
+def cleanup_orphaned(album_name: str, config: AppConfig, dry_run: bool = False) -> int:
     """
     Remove files in output that no longer exist in source.
 

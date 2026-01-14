@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ios_media_toolkit.encoder import Encoder, PipelineConfig, PipelineResult, RateMode, get_effective_resolution
+from ios_media_toolkit.encoder import Encoder, EncoderProfile, PipelineResult, RateMode, get_effective_resolution
 
 
 class TestPipelineResult:
@@ -83,12 +83,12 @@ class TestResolutionLogic:
         assert get_effective_resolution(3840, "720p") == "720p"
 
 
-class TestPipelineConfig:
-    """Tests for PipelineConfig dataclass."""
+class TestEncoderProfile:
+    """Tests for EncoderProfile dataclass."""
 
     def test_crf_config(self):
         """Test CRF mode configuration."""
-        config = PipelineConfig(
+        config = EncoderProfile(
             name="test",
             encoder=Encoder.X265,
             resolution="4k",
@@ -103,7 +103,7 @@ class TestPipelineConfig:
 
     def test_vbr_config(self):
         """Test VBR mode configuration."""
-        config = PipelineConfig(
+        config = EncoderProfile(
             name="test",
             encoder=Encoder.NVENC,
             resolution="1080p",

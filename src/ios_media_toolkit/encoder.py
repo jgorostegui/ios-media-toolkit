@@ -28,8 +28,8 @@ class RateMode(Enum):
 
 
 @dataclass
-class PipelineConfig:
-    """Configuration for an encoding pipeline."""
+class EncoderProfile:
+    """Configuration for an encoding profile."""
 
     name: str
     encoder: Encoder
@@ -163,7 +163,7 @@ def has_dolby_vision(video_path: Path) -> bool:
         return False
 
 
-def build_x265_command(input_path: Path, output_path: Path, config: PipelineConfig) -> list[str]:
+def build_x265_command(input_path: Path, output_path: Path, config: EncoderProfile) -> list[str]:
     """Build ffmpeg command for x265 encoding."""
     cmd = ["ffmpeg", "-y", "-i", str(input_path)]
 
@@ -234,7 +234,7 @@ def get_nvenc_preset(x265_preset: str) -> str:
     return preset_map.get(x265_preset.lower(), "p5")
 
 
-def build_nvenc_command(input_path: Path, output_path: Path, config: PipelineConfig) -> list[str]:
+def build_nvenc_command(input_path: Path, output_path: Path, config: EncoderProfile) -> list[str]:
     """
     Build ffmpeg command for NVENC encoding.
 
@@ -292,7 +292,7 @@ def build_nvenc_command(input_path: Path, output_path: Path, config: PipelineCon
 
 
 def run_dv_workflow(
-    input_path: Path, output_path: Path, config: PipelineConfig, temp_dir: Path
+    input_path: Path, output_path: Path, config: EncoderProfile, temp_dir: Path
 ) -> tuple[bool, str | None]:
     """
     Run complete Dolby Vision preservation workflow.
@@ -454,7 +454,7 @@ def run_dv_workflow(
         return False, str(e)
 
 
-def run_pipeline(input_path: Path, output_dir: Path, config: PipelineConfig) -> PipelineResult:
+def run_pipeline(input_path: Path, output_dir: Path, config: EncoderProfile) -> PipelineResult:
     """
     Run an encoding pipeline on a video file.
 
@@ -590,7 +590,7 @@ def resolve_tool_path(tool_name: str, config_path: str | None) -> Path | None:
     return None
 
 
-def load_pipeline_config(name: str, config_dict: dict, tools_config: dict) -> PipelineConfig:
+def load_encoder_profile(name: str, config_dict: dict, tools_config: dict) -> EncoderProfile:
     """Load a pipeline configuration from config dict with smart tool resolution."""
     encoder_str = config_dict.get("encoder", "x265").lower()
     encoder = Encoder.NVENC if encoder_str == "nvenc" else Encoder.X265
@@ -602,7 +602,7 @@ def load_pipeline_config(name: str, config_dict: dict, tools_config: dict) -> Pi
     dovi_tool = resolve_tool_path("dovi_tool", tools_config.get("dovi_tool"))
     mp4muxer = resolve_tool_path("mp4muxer", tools_config.get("mp4muxer"))
 
-    return PipelineConfig(
+    return EncoderProfile(
         name=name,
         encoder=encoder,
         resolution=config_dict.get("resolution", "4k"),

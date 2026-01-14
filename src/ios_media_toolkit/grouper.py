@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from .constants import PHOTO_EXTENSIONS, VIDEO_EXTENSIONS
+
 
 class MediaType(Enum):
     """Type of media file."""
@@ -56,12 +58,6 @@ class MediaGroup:
             files.append(self.aae_sidecar)
         files.extend(self.other_sidecars)
         return files
-
-
-# File extension categories
-PHOTO_EXTENSIONS = {".heic", ".jpg", ".jpeg", ".png", ".heif", ".dng", ".raw"}
-VIDEO_EXTENSIONS = {".mov", ".mp4", ".m4v", ".avi"}
-SIDECAR_EXTENSIONS = {".xmp", ".aae", ".json"}
 
 
 def get_file_category(path: Path) -> str:

@@ -3,10 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-# File extension sets
-VIDEO_EXTENSIONS = {".mov", ".mp4", ".m4v", ".avi", ".mkv", ".MOV", ".MP4", ".M4V", ".AVI", ".MKV"}
-PHOTO_EXTENSIONS = {".heic", ".HEIC", ".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG", ".dng", ".DNG"}
-MOV_EXTENSIONS = {".mov", ".MOV"}
+from ..constants import MOV_EXTENSIONS, PHOTO_EXTENSIONS, VIDEO_EXTENSIONS
 
 
 @dataclass
