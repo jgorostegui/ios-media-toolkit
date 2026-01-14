@@ -224,8 +224,7 @@ class TestIsLivePhotoVideo:
     def test_live_photo_detected(self, mock_run):
         """Test Live Photo metadata detected."""
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout='{"format": {"tags": {"com.apple.quicktime.live-photo.auto": "1"}}}'
+            returncode=0, stdout='{"format": {"tags": {"com.apple.quicktime.live-photo.auto": "1"}}}'
         )
 
         assert is_live_photo_video(Path("test.mov")) is True
@@ -233,10 +232,7 @@ class TestIsLivePhotoVideo:
     @patch("subprocess.run")
     def test_not_live_photo(self, mock_run):
         """Test non-Live Photo video detected."""
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout='{"format": {"tags": {"title": "Test Video"}}}'
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout='{"format": {"tags": {"title": "Test Video"}}}')
 
         assert is_live_photo_video(Path("test.mov")) is False
 
@@ -252,6 +248,7 @@ class TestIsLivePhotoVideo:
     def test_ffprobe_timeout(self, mock_run):
         """Test ffprobe timeout returns True (assume Live Photo)."""
         import subprocess
+
         mock_run.side_effect = subprocess.TimeoutExpired("ffprobe", 10)
 
         # When ffprobe times out, assume it's a Live Photo
@@ -269,6 +266,7 @@ class TestIsLivePhotoVideo:
     def test_invalid_json(self, mock_run):
         """Test invalid JSON returns True (assume Live Photo)."""
         import json
+
         mock_run.return_value = MagicMock(returncode=0, stdout="not json")
 
         # When JSON parsing fails, assume it's a Live Photo
@@ -277,10 +275,7 @@ class TestIsLivePhotoVideo:
     @patch("subprocess.run")
     def test_missing_tags(self, mock_run):
         """Test missing tags key returns False."""
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout='{"format": {}}'
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout='{"format": {}}')
 
         assert is_live_photo_video(Path("test.mov")) is False
 

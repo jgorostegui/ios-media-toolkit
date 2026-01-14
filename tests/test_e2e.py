@@ -33,8 +33,9 @@ def _tools_available() -> bool:
     """Check if required tools are available."""
     for tool in ["ffprobe", "exiftool"]:
         try:
-            subprocess.run([tool, "-version" if tool == "ffprobe" else "-ver"],
-                          capture_output=True, check=True, timeout=5)
+            subprocess.run(
+                [tool, "-version" if tool == "ffprobe" else "-ver"], capture_output=True, check=True, timeout=5
+            )
         except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return False
     return True
