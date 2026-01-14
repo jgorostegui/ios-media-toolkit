@@ -22,6 +22,7 @@ class RunnerResult:
     videos_transcoded: int = 0
     videos_copied: int = 0
     photos_copied: int = 0
+    dngs_processed: int = 0
     total_input_bytes: int = 0
     total_output_bytes: int = 0
     errors: list[str] = field(default_factory=list)
@@ -57,6 +58,10 @@ class RunnerCallbacks:
     # Transcode progress (called per-file)
     on_transcode_start: Callable[[Path, int, int], None] | None = None  # path, index, total
     on_transcode_complete: Callable[[Path, int, int, bool], None] | None = None  # path, in_size, out_size, success
+
+    # DNG progress (called per-file)
+    on_dng_start: Callable[[Path, int, int], None] | None = None  # path, index, total
+    on_dng_complete: Callable[[Path, int, int, bool], None] | None = None  # path, in_size, out_size, success
 
     # Copy progress
     on_copy_start: Callable[[str, int], None] | None = None  # file_type, count

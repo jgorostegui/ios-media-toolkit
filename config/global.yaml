@@ -24,80 +24,82 @@ tools:
   dovi_tool: ""
   mp4muxer: ""
 
-transcode:
-  enabled: true
-  keep_originals: true
-  # Default profile to use (see profiles section below)
-  default_profile: "balanced"
-
-# Encoding profiles - configurable strategies for different use cases
+# =============================================================================
+# VIDEO TRANSCODING
+# =============================================================================
 # Use: imt transcode video.MOV --profile archival
 # Compare: imt compare video.MOV (runs all profiles)
-profiles:
-  # Best quality, preserves Dolby Vision, slow
-  archival:
-    encoder: "x265"
-    resolution: "4k"
-    mode: "crf"
-    crf: 20
-    preset: "veryslow"
-    preserve_dolby_vision: true
-    description: "Best quality, DV preserved, slow"
 
-  # Good quality, preserves DV, reasonable speed
-  balanced:
-    encoder: "x265"
-    resolution: "4k"
-    mode: "crf"
-    crf: 25
-    preset: "medium"
-    preserve_dolby_vision: true
-    description: "Good quality, DV preserved, medium speed"
+video:
+  enabled: true
+  keep_originals: true
+  default_profile: "nvenc_4k"
 
-  # Fast encoding using GPU, 4K, with DV preservation
-  # NVENC presets: p1(fastest) to p7(best quality)
-  # p6 ≈ x265 "slow" quality, good balance
-  nvenc_4k:
-    encoder: "nvenc"
-    resolution: "4k"
-    mode: "vbr"           # 2-pass VBR via -multipass fullres
-    bitrate: "15M"
-    maxrate: "20M"
-    preset: "slow"        # Maps to p6 (≈ x265 slow)
-    preserve_dolby_vision: true
-    description: "Fast GPU 2-pass, 4K, DV preserved"
+  profiles:
+    # Best quality, preserves Dolby Vision, slow
+    archival:
+      encoder: "x265"
+      resolution: "4k"
+      mode: "crf"
+      crf: 20
+      preset: "veryslow"
+      preserve_dolby_vision: true
+      description: "Best quality, DV preserved, slow"
 
-  # Fast encoding using GPU, 1080p downscale, with DV preservation
-  nvenc_1080p:
-    encoder: "nvenc"
-    resolution: "1080p"
-    mode: "vbr"           # 2-pass VBR
-    bitrate: "8M"
-    maxrate: "12M"
-    preset: "slow"        # Maps to p6
-    preserve_dolby_vision: true
-    description: "Fast GPU 2-pass, 1080p, DV preserved"
+    # Good quality, preserves DV, reasonable speed
+    balanced:
+      encoder: "x265"
+      resolution: "4k"
+      mode: "crf"
+      crf: 25
+      preset: "medium"
+      preserve_dolby_vision: true
+      description: "Good quality, DV preserved, medium speed"
 
-  # Maximum compression, 4K, with DV preservation
-  compact:
-    encoder: "x265"
-    resolution: "4k"
-    mode: "crf"
-    crf: 28
-    preset: "medium"
-    preserve_dolby_vision: true
-    description: "Maximum compression, DV preserved"
+    # Fast encoding using GPU, 4K, with DV preservation
+    # NVENC presets: p1(fastest) to p7(best quality)
+    # p6 ≈ x265 "slow" quality, good balance
+    nvenc_4k:
+      encoder: "nvenc"
+      resolution: "4k"
+      mode: "vbr"           # 2-pass VBR via -multipass fullres
+      bitrate: "15M"
+      maxrate: "20M"
+      preset: "slow"        # Maps to p6 (≈ x265 slow)
+      preserve_dolby_vision: true
+      description: "GPU 2-pass, 4K, DV preserved"
 
-  # Quick preview/test, with DV preservation
-  preview:
-    encoder: "nvenc"
-    resolution: "1080p"
-    mode: "vbr"
-    bitrate: "4M"
-    maxrate: "6M"
-    preset: "p4"
-    preserve_dolby_vision: true
-    description: "Quick preview, DV preserved"
+    # Fast encoding using GPU, 1080p downscale, with DV preservation
+    nvenc_1080p:
+      encoder: "nvenc"
+      resolution: "1080p"
+      mode: "vbr"           # 2-pass VBR
+      bitrate: "8M"
+      maxrate: "12M"
+      preset: "slow"        # Maps to p6
+      preserve_dolby_vision: true
+      description: "GPU 2-pass, 1080p, DV preserved"
+
+    # Maximum compression, 4K, with DV preservation
+    compact:
+      encoder: "x265"
+      resolution: "4k"
+      mode: "crf"
+      crf: 28
+      preset: "medium"
+      preserve_dolby_vision: true
+      description: "Maximum compression, DV preserved"
+
+    # Quick preview/test, with DV preservation
+    preview:
+      encoder: "nvenc"
+      resolution: "1080p"
+      mode: "vbr"
+      bitrate: "4M"
+      maxrate: "6M"
+      preset: "p4"
+      preserve_dolby_vision: true
+      description: "Quick preview, DV preserved"
 
 convert:
   heic_to_jpeg: true
@@ -126,3 +128,51 @@ logging:
   level: "INFO"
   file_logging: true
   console_logging: true
+
+# =============================================================================
+# DNG/PRORAW PROCESSING
+# =============================================================================
+# Use: imt dng compress photo.DNG --profile jpeg
+# Info: imt dng info photo.DNG
+
+dng:
+  # Default profile for DNG compression
+  default_profile: "balanced"
+
+  profiles:
+    # For iPhone 17+ JXL DNGs - keeps RAW editing capability
+    lossless:
+      method: "jxl_recompress"
+      distance: 0.0
+      effort: 7
+      modular: true
+      ljpeg_fallback: "preview"
+      description: "Lossless JXL recompression (JXL DNGs only)"
+
+    balanced:
+      method: "jxl_recompress"
+      distance: 1.0
+      effort: 7
+      modular: true
+      ljpeg_fallback: "preview"
+      description: "Visually lossless, good compression"
+
+    compact:
+      method: "jxl_recompress"
+      distance: 2.0
+      effort: 7
+      modular: true
+      ljpeg_fallback: "preview"
+      description: "Maximum compression, slight quality loss"
+
+    # For any DNG - extracts Apple's rendered JPEG
+    # (works on both JXL and LJPEG DNGs from any iPhone)
+    jpeg:
+      method: "apple_preview"
+      quality: 95
+      description: "Extract Apple JPEG from DNG (any iPhone)"
+
+    jpeg_max:
+      method: "apple_preview"
+      quality: 100
+      description: "Extract Apple JPEG from DNG (max quality)"

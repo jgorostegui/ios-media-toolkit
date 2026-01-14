@@ -22,6 +22,7 @@ class TaskType(Enum):
     CLASSIFY = "classify"
     TRANSCODE = "transcode"
     COPY = "copy"
+    DNG_PROCESS = "dng_process"
     VERIFY = "verify"
 
 

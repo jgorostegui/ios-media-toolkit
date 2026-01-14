@@ -38,6 +38,7 @@ dependencies = [
     "pillow>=10.0",
     "pillow-heif>=0.10.0",
     "rich>=13.0",
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
