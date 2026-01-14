@@ -823,7 +823,9 @@ def dng_info(
     if info.has_preview and info.preview_dimensions:
         table.add_row("Preview Size", f"{info.preview_dimensions[0]}x{info.preview_dimensions[1]}")
         table.add_row("Preview Bytes", f"{info.preview_size / (1024 * 1024):.1f} MB")
-    table.add_row("Can Recompress JXL", "[green]Yes[/green]" if info.can_recompress_jxl else "[yellow]No (LJPEG)[/yellow]")
+    table.add_row(
+        "Can Recompress JXL", "[green]Yes[/green]" if info.can_recompress_jxl else "[yellow]No (LJPEG)[/yellow]"
+    )
 
     console.print(table)
 

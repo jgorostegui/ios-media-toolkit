@@ -271,7 +271,10 @@ def compress_jxl_dng(
     info = detect_dng(input_path)
 
     if info.compression != DngCompression.JXL:
-        raise ValueError(f"DNG is not JXL-compressed (found: {info.compression.value}). " "JXL recompression only works for iPhone 17+ JXL DNGs.")
+        raise ValueError(
+            f"DNG is not JXL-compressed (found: {info.compression.value}). "
+            "JXL recompression only works for iPhone 17+ JXL DNGs."
+        )
 
     # Read input DNG
     with open(input_path, "rb") as f:

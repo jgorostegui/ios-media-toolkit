@@ -10,13 +10,20 @@ VIDEO_EXTENSIONS = {".mov", ".mp4", ".m4v", ".avi", ".mkv", ".MOV", ".MP4", ".M4
 
 # Photo file extensions
 PHOTO_EXTENSIONS = {
-    ".heic", ".HEIC",
-    ".heif", ".HEIF",
-    ".jpg", ".JPG",
-    ".jpeg", ".JPEG",
-    ".png", ".PNG",
-    ".dng", ".DNG",
-    ".raw", ".RAW",
+    ".heic",
+    ".HEIC",
+    ".heif",
+    ".HEIF",
+    ".jpg",
+    ".JPG",
+    ".jpeg",
+    ".JPEG",
+    ".png",
+    ".PNG",
+    ".dng",
+    ".DNG",
+    ".raw",
+    ".RAW",
 }
 
 # MOV files only (iPhone raw video format)
