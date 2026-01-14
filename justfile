@@ -13,32 +13,48 @@ install:
 run *ARGS:
     uv run imt {{ARGS}}
 
+# === Testing ===
+
 # Run all tests
 test *ARGS:
     uv run pytest tests/ {{ARGS}}
 
-# Run tests with coverage
+# Run tests with coverage (mirrors CI)
 test-cov:
-    uv run pytest --cov=src/ios_media_toolkit --cov-report=term-missing -m "not integration"
+    uv run pytest --cov=src/ios_media_toolkit --cov-report=term-missing --cov-report=xml -m "not integration"
 
 # Run a single test file
 test-file FILE:
     uv run pytest {{FILE}} -v
 
-# Run linter
+# === Linting & Formatting ===
+
+# Check lint issues (no fix)
 lint:
     uv run ruff check src tests
 
-# Run formatter check
+# Check format issues (no fix)
 fmt-check:
     uv run ruff format --check src tests
 
-# Format code
+# Auto-fix lint issues
+lint-fix:
+    uv run ruff check --fix src tests
+
+# Auto-format code
 fmt:
     uv run ruff format src tests
 
-# Run all checks (lint + format + test)
-check: lint fmt-check test
+# Fix all lint and format issues
+fix: fmt lint-fix
+
+# === CI Commands ===
+
+# Run all checks exactly as CI does (use before pushing)
+ci: lint fmt-check test-cov
+
+# Alias for ci
+check: ci
 
 # Build package
 build:

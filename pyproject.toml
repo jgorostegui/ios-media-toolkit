@@ -113,7 +113,8 @@ addopts = [
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests requiring external tools",
+    "assets: tests using real asset files from tests/assets/ (requires Git LFS)",
+    "e2e: end-to-end tests requiring ffprobe/exiftool (run in Docker)",
 ]
 
 # Coverage
