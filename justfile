@@ -9,6 +9,11 @@ default:
 install:
     uv sync --all-extras --dev
 
+# Setup dev environment (install deps + pre-commit hooks)
+setup:
+    uv sync --all-extras --dev
+    uv run pre-commit install
+
 # Run the CLI
 run *ARGS:
     uv run imt {{ARGS}}
