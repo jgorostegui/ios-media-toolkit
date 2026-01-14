@@ -325,22 +325,218 @@ Tested on 12.4 MB iPhone video (4K, DV Profile 8, ~4 seconds):
 
 *Archival at CRF 20 can produce larger files than source if source was heavily compressed.
 
+## Complete Processing Pipeline
+
+### Recommended Settings by Device
+
+| Media Type | Device | Profile | Command |
+|------------|--------|---------|---------|
+| **Video** | Any iPhone | `nvenc_4k` | `imt transcode video.MOV --profile nvenc_4k` |
+| **ProRAW** | iPhone 17+ | `balanced` | `imt dng compress photo.DNG --profile balanced` |
+| **ProRAW** | iPhone 12-16 | `jpeg` | `imt dng compress photo.DNG --profile jpeg` |
+
+### Batch Processing Example
+
+```bash
+# Process all videos in album with GPU encoding
+imt process /media/2025_Trip/iPhone --profile nvenc_4k
+
+# Process all DNGs in a folder
+for f in *.DNG; do
+  imt dng compress "$f" --profile balanced
+done
+```
+
+### Expected Results
+
+| Input | Output | Reduction |
+|-------|--------|-----------|
+| 4K Dolby Vision video (70Mbps) | HEVC 15Mbps | ~80% |
+| iPhone 17 ProRAW (50MB JXL) | DNG balanced | ~75% |
+| iPhone 12 ProRAW (32MB LJPEG) | JPEG | ~88% |
+
+---
+
+## ProRAW DNG Processing
+
+### New DNG Commands
+
+```bash
+imt dng info photo.DNG              # Show DNG type (JXL/LJPEG) and metadata
+imt dng compress photo.DNG          # Compress with default profile (balanced)
+imt dng compress photo.DNG -p jpeg  # Extract Apple JPEG
+imt dng list-profiles               # List available profiles
+```
+
+### DNG Compression Profiles
+
+| Profile | Method | For | Size Reduction | RAW Editing |
+|---------|--------|-----|----------------|-------------|
+| `balanced` | JXL recompress | iPhone 17+ JXL | ~75-85% | ✓ Preserved |
+| `lossless` | JXL lossless | iPhone 17+ JXL | ~5-12% | ✓ Preserved |
+| `jpeg` | Apple Preview | Any iPhone | ~85-90% | ✗ Lost |
+| `jpeg_max` | Apple Preview (q100) | Any iPhone | ~80-85% | ✗ Lost |
+
+### Recommended Processing Pipeline
+
+**For iPhone 17 Pro Max (JXL DNGs):**
+```bash
+# Best: JXL recompress - keeps RAW editing, 75-85% smaller
+imt dng compress photo.DNG --profile balanced
+
+# Alternative: Apple JPEG if RAW not needed
+imt dng compress photo.DNG --profile jpeg
+```
+
+**For iPhone 12-16 Pro Max (LJPEG DNGs):**
+```bash
+# Only option: Apple JPEG extraction (JXL recompress not supported)
+imt dng compress photo.DNG --profile jpeg
+```
+
+### Metadata Preservation
+
+**DNG outputs (balanced/lossless):**
+- ✓ ColorMatrix1/2 (RAW color processing)
+- ✓ BaselineExposure (exposure compensation)
+- ✓ WhiteLevel/BlackLevel (sensor calibration)
+- ✓ GPS coordinates
+- ✓ Date/time, camera info
+
+**JPEG outputs:**
+- ✓ GPS coordinates
+- ✓ Date/time, camera info
+- ✓ Display P3 color profile
+- ✗ RAW-specific metadata (not applicable)
+
+### Why JXL Recompress Only Works on iPhone 17+
+
+iPhone 17 uses **JPEG XL** compression inside DNG. We can:
+1. Decode JXL tiles with `djxl` (lossless decode)
+2. Re-encode with lossy JXL at d=1.0 (visually lossless)
+3. Replace tiles in DNG container
+
+iPhone 12-16 uses **LJPEG** compression. The only decoder (`dcraw`) applies color matrix during decode, making the pixel values incompatible with the DNG metadata. Result: wrong colors when viewed.
+
+**Solution for LJPEG:** Extract Apple's embedded preview JPEG, which has correct HDR tone mapping applied at capture time.
+
+---
+
+## Background: iPhone ProRAW (DNG) Technical Details
+
+### DNG Format and LJPEG Compression
+
+iPhone 12 Pro and later capture photos in [Apple ProRAW](https://support.apple.com/en-us/HT211965), using Adobe's [DNG 1.6 specification](https://helpx.adobe.com/camera-raw/digital-negative.html). The raw Bayer data is compressed using Lossless JPEG (ITU-T.81 Annex H), specifically with **predictor mode 7**.
+
+LJPEG uses Differential Pulse-Code Modulation (DPCM) with seven predictor modes. Given neighboring pixels A (left), B (above), and C (diagonal):
+
+| Mode | Formula | Type |
+|------|---------|------|
+| 1 | A | 1D horizontal |
+| 2 | B | 1D vertical |
+| 3 | C | 1D diagonal |
+| 4 | A + B − C | 2D |
+| 5 | A + (B − C)/2 | 2D |
+| 6 | B + (A − C)/2 | 2D |
+| 7 | (A + B)/2 | 2D average |
+
+Apple uses mode 7 `Px = (A + B) / 2` for ProRAW compression. This 2D predictor averages horizontal and vertical neighbors, achieving ~2:1 compression on the 12-bit Bayer data.
+
+### Decoder Compatibility
+
+The [rawspeed](https://github.com/darktable-org/rawspeed) library (used by darktable and ImageMagick 7's delegate) only implements predictors 1 and 6. Attempting to decode iPhone ProRAW produces:
+
+```
+LJpegDecompressor.cpp:91 decodeScan(): Unsupported predictor mode: 7
+```
+
+See [rawspeed#258](https://github.com/darktable-org/rawspeed/issues/258) for status. A [PR#334](https://github.com/darktable-org/rawspeed/pull/334) adding modes 2-7 exists but remains unmerged.
+
+| Decoder | Predictor 7 | Notes |
+|---------|-------------|-------|
+| [LibRaw](https://www.libraw.org/) (dcraw_emu) | ✓ | Full LJ92 implementation |
+| ImageMagick 6 (ufraw delegate) | ✓ | Uses dcraw internally |
+| ImageMagick 7 (darktable delegate) | ✗ | rawspeed limitation |
+| darktable-cli | ✗ | rawspeed limitation |
+| RawTherapee | ✓ | LibRaw-based decoder |
+
+### Dynamic Range Analysis
+
+16-bit linear output from a 4032×3024 ProRAW file (iPhone 12 Pro Max):
+
+| Pipeline | Max pixel value | % of 16-bit range |
+|----------|-----------------|-------------------|
+| LibRaw `-6 -T` | 65,535 | 100% |
+| ImageMagick 6 `-depth 16` | 65,535 | 100% |
+| RawTherapee (default profile) | 34,322 | 52% |
+
+RawTherapee applies a tone curve and gamut mapping by default, clipping ~48% of highlight data. For linear output, use `-p neutral.pp3` with a flat profile or LibRaw directly.
+
+### Conversion Pipeline
+
+DNG to HEIC via [libheif](https://github.com/strukturag/libheif) (heif-enc):
+
+```bash
+# LibRaw: 16-bit linear TIFF → PNG → HEIC
+dcraw_emu -T -6 -W input.DNG          # -6: 16-bit, -T: TIFF, -W: no auto-bright
+convert input.tiff -depth 16 temp.png
+heif-enc -L temp.png -o output.heic   # -L: lossless
+
+# ImageMagick 6: direct DNG → PNG → HEIC
+convert input.DNG -depth 16 temp.png
+heif-enc -q 95 temp.png -o output.heic
+
+# Metadata (not preserved by conversion)
+exiftool -TagsFromFile input.DNG -all:all output.heic
+```
+
+### Size Comparison
+
+Source: `IMG_1854.DNG` (28.9 MB, 4032×3024, iPhone 12 Pro Max)
+
+| Output | Pipeline | Size | vs DNG |
+|--------|----------|------|--------|
+| `01_im6_lossless_FULL_DR.heic` | IM6 → heif-enc -L | 8.9 MB | 31% |
+| `07_libraw_lossless_FULL_DR.heic` | dcraw_emu → heif-enc -L | 9.2 MB | 32% |
+| `08_libraw_q95_FULL_DR.heic` | dcraw_emu → heif-enc -q95 | 5.2 MB | 18% |
+| `03_libraw_q85.heic` | dcraw_emu → heif-enc -q85 | 5.5 MB | 19% |
+| `04_im6_q85.heic` | IM6 → heif-enc -q85 | 4.6 MB | 16% |
+| `02_rt_lossless_CLIPPED.heic` | RawTherapee → heif-enc -L | 6.5 MB | 23% |
+
+LibRaw produces slightly larger lossless output than IM6 due to differences in intermediate PNG encoding (gamma handling). Both preserve full dynamic range. RawTherapee files are smaller because the tone curve discards highlight data.
+
 ## References
 
 ### Tools
+
+**Dolby Vision:**
 - [dovi_tool](https://github.com/quietvoid/dovi_tool) - Dolby Vision RPU extraction and injection
 - [dlb_mp4base](https://github.com/DolbyLaboratories/dlb_mp4base) - Dolby's official MP4 muxer for DV container boxes
 - [DoViMuxer](https://github.com/nilaoda/DoViMuxer) - Automated DV muxing wrapper
 
+**RAW/DNG Processing:**
+- [LibRaw](https://www.libraw.org/) - RAW image decoder library with iPhone ProRAW support
+- [libheif](https://github.com/strukturag/libheif) - HEIF/HEIC encoder/decoder (`heif-enc`)
+- [ImageMagick](https://imagemagick.org/) - Image conversion (v6 uses ufraw delegate for DNG)
+- [rawspeed](https://github.com/darktable-org/rawspeed) - darktable's RAW decoder (lacks ProRAW support)
+
 ### Documentation
+
+**Dolby Vision:**
 - [Apple: Incorporating HDR video with Dolby Vision](https://developer.apple.com/av-foundation/Incorporating-HDR-video-with-Dolby-Vision-into-your-apps.pdf) - Official Apple developer guide
 - [Dolby: iPhone 12 as DV source](https://professionalsupport.dolby.com/s/article/Using-an-Apple-iPhone-12-captured-Dolby-Vision-content-as-a-source-in-a-Dolby-Vision-production?language=en_US) - Profile 8.4 specifications
 - [Bitmovin: hvc1 vs hev1](https://community.bitmovin.com/t/whats-the-difference-between-hvc1-and-hev1-hevc-codec-tags-for-fmp4/101) - Codec tag differences explained
+
+**DNG/ProRAW:**
+- [Adobe DNG Specification 1.7](https://helpx.adobe.com/camera-raw/digital-negative.html) - Official format specification
+- [Lossless JPEG in DNG](https://thndl.com/how-dng-compresses-raw-data-with-lossless-jpeg92.html) - LJ92 compression technical details
+- [ITU-T.81 (JPEG)](https://www.w3.org/Graphics/JPEG/itu-t81.pdf) - Annex H defines lossless mode predictors
 
 ### Community Discussions
 - [dovi_tool: Re-encoding with RPU preservation](https://github.com/quietvoid/dovi_tool/discussions/78) - Workflow discussion
 - [HandBrake: Apple HEVC compatibility](https://github.com/HandBrake/HandBrake/issues/1128) - hvc1 requirement for iOS
 - [FFmpeg Dolby Vision progress](https://www.phoronix.com/news/FFmpeg-Dolby-Vision-Progress) - Current FFmpeg DV support status
+- [rawspeed#258: Predictor mode 7](https://github.com/darktable-org/rawspeed/issues/258) - iPhone ProRAW decoding issue
 
 ### Related Articles
 - [Meta Engineering: HDR on Instagram for iOS](https://engineering.fb.com/2024/11/17/ios/enhancing-hdr-on-instagram-for-ios-with-dolby-vision/) - Industry perspective on DV workflows
