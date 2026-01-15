@@ -113,15 +113,17 @@ jobs:
           context: .
           load: true
           tags: imt:test
+          build-args: INSTALL_DEV=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Run E2E tests in Docker
         run: |
           docker run --rm \
+            --entrypoint uv \
             -v ${{ github.workspace }}/tests:/tests:ro \
             imt:test \
-            pytest /tests/test_e2e.py -v
+            run --project /app python -m pytest /tests/test_e2e.py -v
 
   build:
     name: Build Package

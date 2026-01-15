@@ -10,7 +10,7 @@
 # - nvidia-container-toolkit installed on host
 # - Run with: --gpus all
 
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM nvidia/cuda:13.0.2-runtime-ubuntu24.04
 
 LABEL maintainer="ios-media-toolkit"
 LABEL description="iPhone media processing with Dolby Vision preservation"
@@ -73,7 +73,14 @@ RUN uv python install 3.14
 # Option 2: From local source (for testing)
 COPY . /app
 WORKDIR /app
-RUN uv sync --no-dev
+
+# Build arg for dev dependencies (used in CI for e2e tests)
+ARG INSTALL_DEV=false
+RUN if [ "$INSTALL_DEV" = "true" ]; then \
+      uv sync --extra dev && uv run python -c "import pytest; print('pytest installed')"; \
+    else \
+      uv sync --no-dev; \
+    fi
 
 # Verify installations
 RUN ffmpeg -version | head -1 \
