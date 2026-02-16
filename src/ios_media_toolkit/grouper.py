@@ -105,7 +105,7 @@ def is_live_photo_video(video_path: Path) -> bool:
         # Check for Live Photo metadata
         return tags.get("com.apple.quicktime.live-photo.auto") is not None
 
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+    except subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError:
         # If ffprobe fails, fall back to stem-only matching
         return True  # Assume it's a Live Photo if we can't verify
 

@@ -36,7 +36,7 @@ def _tools_available() -> bool:
             subprocess.run(
                 [tool, "-version" if tool == "ffprobe" else "-ver"], capture_output=True, check=True, timeout=5
             )
-        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        except FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired:
             return False
     return True
 

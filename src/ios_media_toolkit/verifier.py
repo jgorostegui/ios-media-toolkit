@@ -175,7 +175,7 @@ def check_dolby_vision(file_path: Path) -> tuple[CheckResult, CheckResult]:
                 container_check = CheckResult(
                     name="DV container boxes (dvcC/dvvC)", status=CheckStatus.PASS, details="Not a Dolby Vision file"
                 )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except subprocess.CalledProcessError, FileNotFoundError:
         container_check = CheckResult(
             name="DV container boxes (dvcC/dvvC)", status=CheckStatus.WARN, details="Could not check container boxes"
         )

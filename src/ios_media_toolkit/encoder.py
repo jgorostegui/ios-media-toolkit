@@ -90,7 +90,7 @@ def get_video_duration(video_path: Path) -> float:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         return float(result.stdout.strip())
-    except (subprocess.TimeoutExpired, ValueError):
+    except subprocess.TimeoutExpired, ValueError:
         return 0.0
 
 
@@ -113,7 +113,7 @@ def get_video_resolution(video_path: Path) -> tuple[int, int]:
         parts = result.stdout.strip().split(",")
         if len(parts) == 2:
             return int(parts[0]), int(parts[1])
-    except (subprocess.TimeoutExpired, ValueError):
+    except subprocess.TimeoutExpired, ValueError:
         pass
     return 0, 0
 

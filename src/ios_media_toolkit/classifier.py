@@ -89,7 +89,7 @@ def is_favorite(media_path: Path, rating_threshold: int = 5) -> FavoriteInfo:
 
     try:
         content = xmp_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+    except OSError, UnicodeDecodeError:
         return FavoriteInfo(is_favorite=False, rating=0, source="none", xmp_path=xmp_path)
 
     rating, source = parse_rating(content)

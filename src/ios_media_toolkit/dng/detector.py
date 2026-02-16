@@ -193,7 +193,7 @@ def detect_dng(path: Path) -> DngInfo:
         preview_length = int(values[3]) if values[3] else 0
         preview_width = int(values[4]) if values[4] else 0
         preview_height = int(values[5]) if values[5] else 0
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         width = height = bits_per_sample = 0
         preview_length = preview_width = preview_height = 0
 
