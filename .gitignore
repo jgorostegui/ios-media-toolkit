@@ -45,7 +45,6 @@ logs/*.log
 
 # uv
 .python-version
-uv.lock
 
 # Testing
 .pytest_cache/
