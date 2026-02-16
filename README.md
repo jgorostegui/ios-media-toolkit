@@ -538,9 +538,6 @@ LibRaw produces slightly larger lossless output than IM6 due to differences in i
 - [FFmpeg Dolby Vision progress](https://www.phoronix.com/news/FFmpeg-Dolby-Vision-Progress) - Current FFmpeg DV support status
 - [rawspeed#258: Predictor mode 7](https://github.com/darktable-org/rawspeed/issues/258) - iPhone ProRAW decoding issue
 
-### Related Articles
-- [Meta Engineering: HDR on Instagram for iOS](https://engineering.fb.com/2024/11/17/ios/enhancing-hdr-on-instagram-for-ios-with-dolby-vision/) - Industry perspective on DV workflows
-
 ## License
 
 MIT
